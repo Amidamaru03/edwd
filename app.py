@@ -1,16 +1,22 @@
-
-```python
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-
-import streamlit as st
 import base64
 
-# =========================================
-# FUNCTION TO ADD BACKGROUND IMAGE
-# =========================================
+# =====================================================
+# PAGE CONFIG
+# =====================================================
+
+st.set_page_config(
+    page_title="AI LIVE Sales Dashboard",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# =====================================================
+# BACKGROUND IMAGE FUNCTION
+# =====================================================
 
 def add_bg_from_local(image_file):
     with open(image_file, "rb") as image:
@@ -28,16 +34,91 @@ def add_bg_from_local(image_file):
             background-attachment: fixed;
         }}
 
-        /* OPTIONAL DARK OVERLAY */
-        .stApp::before {{
+        /* DARK OVERLAY */
+        .stApp:before {{
             content: "";
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.55);
+            width: 100%;
+            background: rgba(0,0,0,0.60);
             z-index: -1;
+        }}
+
+        /* GLOBAL TEXT */
+        html, body, [class*="css"] {{
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+        }}
+
+        /* MAIN CONTAINER */
+        .block-container {{
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }}
+
+        /* KPI CARDS */
+        .metric-card {{
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }}
+
+        .metric-title {{
+            font-size: 14px;
+            color: #d1d5db;
+        }}
+
+        .metric-value {{
+            font-size: 30px;
+            font-weight: bold;
+            color: white;
+        }}
+
+        /* SIDEBAR */
+        section[data-testid="stSidebar"] {{
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(15px);
+        }}
+
+        /* TABLE */
+        [data-testid="stDataFrame"] {{
+            background: rgba(0,0,0,0.55);
+            border-radius: 16px;
+            overflow: hidden;
+        }}
+
+        /* BUTTONS */
+        .stButton button,
+        .stDownloadButton button {{
+            background: linear-gradient(135deg, #ff0000, #990000);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.6rem 1rem;
+            font-weight: bold;
+        }}
+
+        /* INPUTS */
+        .stTextInput > div > div > input {{
+            background-color: rgba(255,255,255,0.08);
+            color: white;
+        }}
+
+        /* MOBILE */
+        @media (max-width: 768px) {{
+
+            .metric-value {{
+                font-size: 22px;
+            }}
+
+            h1 {{
+                font-size: 28px !important;
+            }}
         }}
 
         </style>
@@ -45,135 +126,11 @@ def add_bg_from_local(image_file):
         unsafe_allow_html=True
     )
 
-st.markdown("""
-<style>
-
-.metric-card {
-    background: rgba(0,0,0,0.65);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 20px;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
-[data-testid="stSidebar"] {
-    background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(12px);
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-# =========================================
-# CALL FUNCTION
-# =========================================
+# =====================================================
+# LOAD BACKGROUND IMAGE
+# =====================================================
 
 add_bg_from_local("npls.jpeg")
-
-# =====================================================
-# PAGE CONFIG
-# =====================================================
-
-st.set_page_config(
-    page_title="AI LIVE Sales Dashboard",
-    page_icon="🚀",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# =====================================================
-# CUSTOM CSS
-# =====================================================
-
-st.markdown("""
-<style>
-
-/* GLOBAL */
-html, body, [class*="css"] {
-    font-family: 'Segoe UI', sans-serif;
-}
-
-.block-container {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
-}
-
-/* MAIN BACKGROUND */
-.stApp {
-    background: linear-gradient(to bottom right, #0f172a, #111827);
-    color: white;
-}
-
-/* KPI CARDS */
-.metric-card {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    padding: 20px;
-    border-radius: 18px;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-    transition: 0.3s ease;
-}
-
-.metric-card:hover {
-    transform: translateY(-4px);
-}
-
-.metric-title {
-    font-size: 14px;
-    color: #cbd5e1;
-}
-
-.metric-value {
-    font-size: 28px;
-    font-weight: bold;
-    color: white;
-}
-
-/* SIDEBAR */
-section[data-testid="stSidebar"] {
-    background-color: #111827;
-}
-
-/* DATAFRAME */
-[data-testid="stDataFrame"] {
-    border-radius: 16px;
-    overflow: hidden;
-}
-
-/* BUTTONS */
-.stButton button,
-.stDownloadButton button {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: white;
-    border-radius: 12px;
-    border: none;
-    padding: 0.6rem 1rem;
-    font-weight: 600;
-}
-
-/* MOBILE */
-@media (max-width: 768px) {
-
-    h1 {
-        font-size: 28px !important;
-        text-align: center;
-    }
-
-    .metric-value {
-        font-size: 20px;
-    }
-
-    .block-container {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-}
-
-</style>
-""", unsafe_allow_html=True)
 
 # =====================================================
 # HEADER
@@ -192,25 +149,19 @@ uploaded_file = st.file_uploader(
 )
 
 # =====================================================
-# LOAD DATA
+# PROCESS FILE
 # =====================================================
 
 if uploaded_file:
 
     # LOAD EXCEL
-    df = pd.read_excel(uploaded_file, header=6)
+    df = pd.read_excel(uploaded_file)
 
     # CLEAN DATA
-    df = df.dropna(how='all')
-    df = df.loc[:, ~df.columns.isna()]
     df.columns = df.columns.astype(str).str.strip()
 
-    # =====================================================
     # NUMERIC COLUMNS
-    # =====================================================
-
     numeric_cols = [
-        'S&OP',
         'SNOP',
         'TOTAL UCS',
         'ACV VS S7OP',
@@ -220,17 +171,6 @@ if uploaded_file:
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    # =====================================================
-    # DATE FORMAT
-    # =====================================================
-
-    for col in df.columns:
-        if 'date' in col.lower():
-            try:
-                df[col] = pd.to_datetime(df[col])
-            except:
-                pass
 
     # =====================================================
     # SIDEBAR FILTERS
@@ -253,19 +193,6 @@ if uploaded_file:
                 filtered_df['Customer Name'].isin(customer_filter)
             ]
 
-    # ROUTE FILTER
-    if 'ROUTE' in df.columns:
-
-        route_filter = st.sidebar.multiselect(
-            "Select Route",
-            options=sorted(df['ROUTE'].dropna().unique())
-        )
-
-        if route_filter:
-            filtered_df = filtered_df[
-                filtered_df['ROUTE'].isin(route_filter)
-            ]
-
     # =====================================================
     # KPI CALCULATIONS
     # =====================================================
@@ -275,7 +202,7 @@ if uploaded_file:
     total_variance = filtered_df['VARIANCE TO HIT'].sum() if 'VARIANCE TO HIT' in filtered_df.columns else 0
 
     avg_acv = (
-        filtered_df['ACV VS S7OP'].mean() * 100
+        filtered_df['ACV VS S7OP'].mean()
         if 'ACV VS S7OP' in filtered_df.columns
         else 0
     )
@@ -288,40 +215,40 @@ if uploaded_file:
 
     with col1:
         st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>TOTAL UCS</div>
-            <div class='metric-value'>{total_ucs:,.2f}</div>
+        <div class="metric-card">
+            <div class="metric-title">TOTAL UCS</div>
+            <div class="metric-value">{total_ucs:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
         st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>TOTAL SNOP</div>
-            <div class='metric-value'>{total_snop:,.2f}</div>
+        <div class="metric-card">
+            <div class="metric-title">TOTAL SNOP</div>
+            <div class="metric-value">{total_snop:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col3:
         st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>TOTAL VARIANCE</div>
-            <div class='metric-value'>{total_variance:,.2f}</div>
+        <div class="metric-card">
+            <div class="metric-title">TOTAL VARIANCE</div>
+            <div class="metric-value">{total_variance:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col4:
         st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>AVG ACV VS S7OP</div>
-            <div class='metric-value'>{avg_acv:,.2f}%</div>
+        <div class="metric-card">
+            <div class="metric-title">AVG ACV VS S7OP</div>
+            <div class="metric-value">{avg_acv:.2f}%</div>
         </div>
         """, unsafe_allow_html=True)
 
-    st.divider()
+    st.markdown("---")
 
     # =====================================================
-    # CHARTS SECTION
+    # CHARTS
     # =====================================================
 
     chart1, chart2 = st.columns(2)
@@ -341,79 +268,54 @@ if uploaded_file:
             top_customers,
             x='Customer Name',
             y='TOTAL UCS',
-            text_auto='.2s',
-            title='🏆 Top 10 Customers'
+            title='🏆 Top Customers',
+            text_auto='.2s'
         )
 
         fig1.update_layout(
             template='plotly_dark',
-            height=450
+            height=450,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
         )
 
         chart1.plotly_chart(fig1, use_container_width=True)
 
-    # PARTNER MODEL PIE
-    if 'PARTNER SUB MODEL' in filtered_df.columns and 'TOTAL UCS' in filtered_df.columns:
+    # PIE CHART
+    if 'Customer Name' in filtered_df.columns and 'TOTAL UCS' in filtered_df.columns:
 
-        partner_data = (
-            filtered_df.groupby('PARTNER SUB MODEL')['TOTAL UCS']
+        pie_data = (
+            filtered_df.groupby('Customer Name')['TOTAL UCS']
             .sum()
+            .head(5)
             .reset_index()
         )
 
         fig2 = px.pie(
-            partner_data,
-            names='PARTNER SUB MODEL',
+            pie_data,
+            names='Customer Name',
             values='TOTAL UCS',
-            hole=0.45,
-            title='📦 Partner Distribution'
+            hole=0.5,
+            title='📊 Customer Distribution'
         )
 
         fig2.update_layout(
             template='plotly_dark',
-            height=450
+            height=450,
+            paper_bgcolor='rgba(0,0,0,0)'
         )
 
         chart2.plotly_chart(fig2, use_container_width=True)
 
-    # =====================================================
-    # ROUTE ANALYTICS
-    # =====================================================
-
-    if 'ROUTE' in filtered_df.columns and 'TOTAL UCS' in filtered_df.columns:
-
-        route_data = (
-            filtered_df.groupby('ROUTE')['TOTAL UCS']
-            .sum()
-            .sort_values(ascending=False)
-            .head(15)
-            .reset_index()
-        )
-
-        fig3 = px.line(
-            route_data,
-            x='ROUTE',
-            y='TOTAL UCS',
-            markers=True,
-            title='🚚 Route Performance'
-        )
-
-        fig3.update_layout(
-            template='plotly_dark',
-            height=500
-        )
-
-        st.plotly_chart(fig3, use_container_width=True)
-
-    st.divider()
+    st.markdown("---")
 
     # =====================================================
-    # SEARCH TABLE
+    # SEARCH
     # =====================================================
 
     st.subheader("📋 Smart Data Explorer")
 
-    search = st.text_input("🔍 Search entire database")
+    search = st.text_input("🔍 Search data")
 
     display_df = filtered_df.copy()
 
@@ -426,67 +328,53 @@ if uploaded_file:
         display_df = display_df[mask]
 
     # =====================================================
-    # FORMAT TABLE
-    # =====================================================
-
-    for col in numeric_cols:
-        if col in display_df.columns:
-            display_df[col] = display_df[col].map(
-                lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
-            )
-
-    if 'ACV VS S7OP' in display_df.columns:
-        display_df['ACV VS S7OP'] = display_df['ACV VS S7OP'].astype(str) + '%'
-
-    # =====================================================
-    # DISPLAY TABLE
+    # DISPLAY DATA
     # =====================================================
 
     st.dataframe(
         display_df,
         use_container_width=True,
-        height=600
+        height=500
     )
 
     # =====================================================
-    # DOWNLOAD OPTIONS
+    # DOWNLOAD CSV
     # =====================================================
 
     csv = filtered_df.to_csv(index=False).encode('utf-8')
 
     st.download_button(
-        label='⬇ Download CSV Report',
+        label="⬇ Download CSV",
         data=csv,
-        file_name='advanced_sales_dashboard.csv',
-        mime='text/csv'
+        file_name="sales_dashboard.csv",
+        mime="text/csv"
     )
 
     # =====================================================
     # AI INSIGHTS
     # =====================================================
 
-    st.divider()
+    st.markdown("---")
 
     st.subheader("🧠 AI Smart Insights")
 
     try:
-
         best_customer = top_customers.iloc[0]['Customer Name']
         best_value = top_customers.iloc[0]['TOTAL UCS']
 
         st.success(
-            f"Top performing customer is {best_customer} with {best_value:,.2f} TOTAL UCS."
+            f"🔥 Top customer is {best_customer} with {best_value:,.2f} TOTAL UCS."
         )
 
         if total_variance < 0:
-            st.error("Current sales variance is below target. Immediate recovery action recommended.")
+            st.error("⚠ Sales variance is below target.")
         else:
-            st.success("Sales performance is currently above target trajectory.")
+            st.success("✅ Sales performance is above target.")
 
     except:
-        pass
+        st.warning("Upload valid sales data to generate insights.")
 
 else:
 
-    st.info("📂 Upload an Excel file to launch the AI dashboard.")
+    st.info("📂 Upload an Excel file to launch the dashboard.")
 
