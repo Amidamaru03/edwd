@@ -9,7 +9,7 @@ import numpy as np
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(
-    page_title="Executive Sales Dashboard",
+    page_title="BD RYAN EDWD Sales Dashboard",
     page_icon="📊",
     layout="wide"
 )
@@ -110,7 +110,7 @@ if uploaded_file is not None:
         uploaded_file.seek(0)
 
         # =================================================
-        # READ FILE USING HEADER
+        # READ FILE USING DETECTED HEADER
         # =================================================
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file, header=header_row)
@@ -197,7 +197,7 @@ Found Columns:
             ).fillna(0)
 
         # =================================================
-        # REMOVE INVALID VALUES
+        # CLEAN INVALID VALUES
         # =================================================
         df = df.replace([np.inf, -np.inf], 0)
         df = df.fillna(0)
@@ -205,7 +205,7 @@ Found Columns:
         st.success("File uploaded successfully!")
 
         # =================================================
-        # SIDEBAR FILTER
+        # SIDEBAR FILTERS
         # =================================================
         st.sidebar.header("🔍 Filters")
 
@@ -232,7 +232,7 @@ Found Columns:
         avg_acv = filtered_df["ACV VS S7OP"].mean()
 
         # =================================================
-        # KPI SECTION
+        # KPI CARDS
         # =================================================
         st.markdown("## 📌 KPI Overview")
 
@@ -280,18 +280,12 @@ Found Columns:
         )
 
         # =================================================
-        # FIX NEGATIVE BUBBLE SIZE
+        # FIX BUBBLE SIZE
         # =================================================
         summary["Bubble Size"] = (
             summary["VARIANCE TO HIT"]
             .abs()
-            .fillna(1)
-        )
-
-        summary["Bubble Size"] = np.where(
-            summary["Bubble Size"] <= 0,
-            1,
-            summary["Bubble Size"]
+            .replace(0, 1)
         )
 
         # =================================================
@@ -345,7 +339,7 @@ Found Columns:
         st.plotly_chart(fig_heat, use_container_width=True)
 
         # =================================================
-        # GAUGE + PIE
+        # GAUGE CHART
         # =================================================
         g1, g2 = st.columns(2)
 
@@ -360,6 +354,7 @@ Found Columns:
 
         g1.plotly_chart(fig_gauge, use_container_width=True)
 
+        # PIE CHART
         fig_pie = px.pie(
             summary.head(10),
             names="Customer Name",
@@ -420,16 +415,13 @@ with TOTAL UCS of {worst_ucs:,.0f}
         # =================================================
         # DOWNLOAD BUTTON
         # =================================================
-        output = BytesIO()
-
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            filtered_df.to_excel(writer, index=False)
+        csv_data = filtered_df.to_csv(index=False).encode('utf-8')
 
         st.download_button(
             label="📥 Download Filtered Data",
-            data=output.getvalue(),
-            file_name="filtered_dashboard.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            data=csv_data,
+            file_name="filtered_dashboard.csv",
+            mime="text/csv"
         )
 
     except Exception as e:
