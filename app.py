@@ -19,17 +19,13 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-body {
-    background-color: #0f172a;
-}
-
 .main {
     background-color: #0f172a;
     color: white;
 }
 
 .block-container {
-    padding-top: 2rem;
+    padding-top: 1rem;
 }
 
 [data-testid="stSidebar"] {
@@ -37,7 +33,7 @@ body {
 }
 
 .kpi-card {
-    padding: 22px;
+    padding: 20px;
     border-radius: 18px;
     background: linear-gradient(135deg,#1e3a8a,#2563eb);
     color: white;
@@ -59,13 +55,6 @@ body {
     font-weight: bold;
 }
 
-.section-title {
-    font-size: 24px;
-    font-weight: bold;
-    margin-top: 20px;
-    margin-bottom: 10px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -84,118 +73,144 @@ uploaded_file = st.file_uploader(
 )
 
 # =========================================================
-# FUNCTION TO CLEAN COLUMN NAMES
-# =========================================================
-def clean_columns(df):
-    df.columns = (
-        df.columns
-        .str.strip()
-        .str.replace("\n", " ", regex=False)
-        .str.replace("\r", " ", regex=False)
-        .str.replace("  ", " ", regex=False)
-    )
-    return df
-
-# =========================================================
-# START PROCESS
+# PROCESS FILE
 # =========================================================
 if uploaded_file is not None:
 
     with st.spinner("Processing file..."):
 
-        try:
+        # =================================================
+        # READ FILE WITHOUT HEADER
+        # =================================================
+        if uploaded_file.name.endswith(".csv"):
+            temp_df = pd.read_csv(uploaded_file, header=None)
+        else:
+            temp_df = pd.read_excel(uploaded_file, header=None)
 
-            # =================================================
-            # READ FILE
-            # =================================================
-            if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
+        # =================================================
+        # AUTO DETECT HEADER ROW
+        # =================================================
+        header_row = None
 
-            # =================================================
-            # CLEAN COLUMNS
-            # =================================================
-            df = clean_columns(df)
+        for i in range(len(temp_df)):
 
-            # =================================================
-            # AUTO DETECT COLUMN NAMES
-            # =================================================
-            column_mapping = {}
+            row_values = temp_df.iloc[i].astype(str).str.upper().tolist()
 
-            for col in df.columns:
+            if (
+                any("CUSTOMER" in val for val in row_values)
+                and any("SNOP" in val for val in row_values)
+            ):
+                header_row = i
+                break
 
-                col_upper = col.upper().strip()
+        # =================================================
+        # VALIDATE HEADER
+        # =================================================
+        if header_row is None:
 
-                if "CUSTOMER" in col_upper and "NAME" in col_upper:
-                    column_mapping[col] = "Customer Name"
+            st.error("""
+            Could not detect the correct header row.
 
-                elif "SNOP" in col_upper:
-                    column_mapping[col] = "SNOP"
+            Required columns:
+            - Customer Name
+            - SNOP
+            - TOTAL UCS
+            - ACV VS S7OP
+            - VARIANCE TO HIT
+            """)
 
-                elif "TOTAL UCS" in col_upper or "UCS" == col_upper:
-                    column_mapping[col] = "TOTAL UCS"
-
-                elif "ACV" in col_upper:
-                    column_mapping[col] = "ACV VS S7OP"
-
-                elif "VARIANCE" in col_upper:
-                    column_mapping[col] = "VARIANCE TO HIT"
-
-            # RENAME COLUMNS
-            df = df.rename(columns=column_mapping)
-
-            # =================================================
-            # REQUIRED COLUMNS
-            # =================================================
-            required_cols = [
-                "Customer Name",
-                "SNOP",
-                "TOTAL UCS",
-                "ACV VS S7OP",
-                "VARIANCE TO HIT"
-            ]
-
-            # =================================================
-            # CHECK MISSING
-            # =================================================
-            missing_cols = [
-                col for col in required_cols
-                if col not in df.columns
-            ]
-
-            if missing_cols:
-                st.error(f"""
-                Missing columns detected:
-
-                {missing_cols}
-
-                Current columns found:
-                {list(df.columns)}
-                """)
-                st.stop()
-
-            # =================================================
-            # CONVERT TO NUMERIC
-            # =================================================
-            numeric_cols = [
-                "SNOP",
-                "TOTAL UCS",
-                "ACV VS S7OP",
-                "VARIANCE TO HIT"
-            ]
-
-            for col in numeric_cols:
-                df[col] = pd.to_numeric(
-                    df[col],
-                    errors="coerce"
-                ).fillna(0)
-
-            st.success("File uploaded successfully!")
-
-        except Exception as e:
-            st.error(f"Error reading file: {e}")
             st.stop()
+
+        # =================================================
+        # RELOAD FILE USING DETECTED HEADER
+        # =================================================
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file, header=header_row)
+        else:
+            df = pd.read_excel(uploaded_file, header=header_row)
+
+        # =================================================
+        # CLEAN COLUMN NAMES
+        # =================================================
+        df.columns = (
+            df.columns
+            .astype(str)
+            .str.strip()
+            .str.replace("\n", " ", regex=False)
+            .str.replace("\r", " ", regex=False)
+        )
+
+        # =================================================
+        # AUTO MAP COLUMNS
+        # =================================================
+        column_mapping = {}
+
+        for col in df.columns:
+
+            col_upper = col.upper()
+
+            if "CUSTOMER" in col_upper and "NAME" in col_upper:
+                column_mapping[col] = "Customer Name"
+
+            elif "SNOP" in col_upper:
+                column_mapping[col] = "SNOP"
+
+            elif "TOTAL UCS" in col_upper or "UCS" in col_upper:
+                column_mapping[col] = "TOTAL UCS"
+
+            elif "ACV" in col_upper:
+                column_mapping[col] = "ACV VS S7OP"
+
+            elif "VARIANCE" in col_upper:
+                column_mapping[col] = "VARIANCE TO HIT"
+
+        df = df.rename(columns=column_mapping)
+
+        # =================================================
+        # REQUIRED COLUMNS
+        # =================================================
+        required_cols = [
+            "Customer Name",
+            "SNOP",
+            "TOTAL UCS",
+            "ACV VS S7OP",
+            "VARIANCE TO HIT"
+        ]
+
+        missing_cols = [
+            col for col in required_cols
+            if col not in df.columns
+        ]
+
+        if missing_cols:
+
+            st.error(f"""
+            Missing columns:
+            {missing_cols}
+
+            Current columns found:
+            {list(df.columns)}
+            """)
+
+            st.stop()
+
+        # =================================================
+        # NUMERIC CONVERSION
+        # =================================================
+        numeric_cols = [
+            "SNOP",
+            "TOTAL UCS",
+            "ACV VS S7OP",
+            "VARIANCE TO HIT"
+        ]
+
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(
+                df[col],
+                errors="coerce"
+            ).fillna(0)
+
+    st.success("File uploaded successfully!")
 
     # =========================================================
     # SIDEBAR FILTERS
@@ -204,12 +219,12 @@ if uploaded_file is not None:
 
     selected_customers = st.sidebar.multiselect(
         "Customer Name",
-        options=sorted(df["Customer Name"].unique()),
-        default=sorted(df["Customer Name"].unique())
+        options=sorted(df["Customer Name"].dropna().unique()),
+        default=sorted(df["Customer Name"].dropna().unique())
     )
 
     timeline = st.sidebar.selectbox(
-        "Timeline View",
+        "Timeline",
         ["Monthly", "Quarterly", "Yearly"]
     )
 
@@ -230,7 +245,7 @@ if uploaded_file is not None:
     avg_acv = filtered_df["ACV VS S7OP"].mean()
 
     # =========================================================
-    # KPI SECTION
+    # KPI CARDS
     # =========================================================
     st.markdown("## 📌 KPI Overview")
 
@@ -277,12 +292,7 @@ if uploaded_file is not None:
         """, unsafe_allow_html=True)
 
     # =========================================================
-    # CHARTS
-    # =========================================================
-    st.markdown("## 📊 Advanced Analytics")
-
-    # =========================================================
-    # TOP CUSTOMERS BAR
+    # CUSTOMER SUMMARY
     # =========================================================
     customer_summary = filtered_df.groupby(
         "Customer Name",
@@ -299,8 +309,14 @@ if uploaded_file is not None:
         ascending=False
     )
 
+    # =========================================================
+    # CHARTS
+    # =========================================================
+    st.markdown("## 📊 Advanced Analytics")
+
     c1, c2 = st.columns(2)
 
+    # BAR CHART
     fig_bar = px.bar(
         customer_summary.head(10),
         x="TOTAL UCS",
@@ -312,9 +328,7 @@ if uploaded_file is not None:
 
     c1.plotly_chart(fig_bar, use_container_width=True)
 
-    # =========================================================
     # SCATTER CHART
-    # =========================================================
     fig_scatter = px.scatter(
         customer_summary,
         x="SNOP",
@@ -350,20 +364,18 @@ if uploaded_file is not None:
     # =========================================================
     g1, g2 = st.columns(2)
 
-    performance_value = avg_acv
-
     fig_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=performance_value,
+        value=avg_acv,
         title={'text': "ACV VS S7OP Performance"},
         gauge={
             'axis': {'range': [0, 150]},
             'steps': [
-                {'range': [0, 60], 'color': "#ef4444"},
-                {'range': [60, 100], 'color': "#facc15"},
-                {'range': [100, 150], 'color': "#22c55e"}
+                {'range': [0, 60], 'color': "red"},
+                {'range': [60, 100], 'color': "yellow"},
+                {'range': [100, 150], 'color': "green"}
             ],
-            'bar': {'color': "#2563eb"}
+            'bar': {'color': "blue"}
         }
     ))
 
@@ -392,30 +404,23 @@ if uploaded_file is not None:
     ].shape[0]
 
     st.info(f"""
-### Key Insights
+    ✅ Best Performing Customer:
+    {best_customer['Customer Name']}
+    with TOTAL UCS of {best_customer['TOTAL UCS']:,.0f}
 
-✅ Best Performing Customer:
-**{best_customer['Customer Name']}**
-with TOTAL UCS of **{best_customer['TOTAL UCS']:,.0f}**
+    ⚠️ Lowest Performing Customer:
+    {worst_customer['Customer Name']}
+    with TOTAL UCS of {worst_customer['TOTAL UCS']:,.0f}
 
-⚠️ Lowest Performing Customer:
-**{worst_customer['Customer Name']}**
-with TOTAL UCS of **{worst_customer['TOTAL UCS']:,.0f}**
+    📉 Customers Below Target:
+    {below_target}
 
-📉 Customers Below Target:
-**{below_target} customers**
-
-📊 Performance Summary:
-- Total SNOP: {total_snop:,.0f}
-- Total UCS: {total_ucs:,.0f}
-- Average ACV Achievement: {avg_acv:.2f}%
-
-🚀 Recommendations:
-- Focus on customers with high variance
-- Improve conversion from SNOP to UCS
-- Prioritize underperforming accounts
-- Monitor ACV achievement regularly
-""")
+    🚀 Recommendations:
+    - Improve UCS conversion
+    - Focus on low-performing customers
+    - Monitor variance closely
+    - Increase support for weak accounts
+    """)
 
     # =========================================================
     # DATA TABLE
@@ -444,4 +449,4 @@ with TOTAL UCS of **{worst_customer['TOTAL UCS']:,.0f}**
     )
 
 else:
-    st.info("Please upload an Excel file to begin.")
+    st.info("Please upload an Excel or CSV file to begin.")
