@@ -54,7 +54,7 @@ st.markdown("""
 # =========================================================
 # TITLE
 # =========================================================
-st.title("📊 Executive Sales Performance Dashboard")
+st.title("📊 BD RYAN EDWD Sales Performance Dashboard")
 st.caption("Interactive enterprise analytics dashboard")
 
 # =========================================================
