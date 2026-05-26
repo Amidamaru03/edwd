@@ -72,7 +72,7 @@ if uploaded_file is not None:
     try:
 
         # =================================================
-        # READ FILE WITHOUT HEADERS
+        # READ FILE WITHOUT HEADER
         # =================================================
         if uploaded_file.name.endswith(".csv"):
             temp_df = pd.read_csv(uploaded_file, header=None)
@@ -88,33 +88,13 @@ if uploaded_file is not None:
 
             row_values = (
                 temp_df.iloc[i]
+                .fillna("")
                 .astype(str)
                 .str.upper()
                 .tolist()
             )
- # =================================================
-# FIND HEADER ROW
-# =================================================
-header_row = 0
 
-for i in range(len(temp_df)):
-
-    row_values = (
-        temp_df.iloc[i]
-        .fillna("")
-        .astype(str)
-        .str.upper()
-        .tolist()
-    )
-
-    row_text = " ".join([str(x) for x in row_values])
-
-    if (
-        "CUSTOMER" in row_text
-        and "SNOP" in row_text
-    ):
-        header_row = i
-        break
+            row_text = " ".join([str(x) for x in row_values])
 
             if (
                 "CUSTOMER" in row_text
@@ -124,10 +104,13 @@ for i in range(len(temp_df)):
                 break
 
         # =================================================
-        # RELOAD FILE WITH DETECTED HEADER
+        # RESET FILE POINTER
         # =================================================
         uploaded_file.seek(0)
 
+        # =================================================
+        # READ FILE USING DETECTED HEADER
+        # =================================================
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file, header=header_row)
         else:
@@ -188,12 +171,12 @@ for i in range(len(temp_df)):
 
         if missing_cols:
             st.error(f"""
-            Missing Columns:
-            {missing_cols}
+Missing Columns:
+{missing_cols}
 
-            Found Columns:
-            {list(df.columns)}
-            """)
+Found Columns:
+{list(df.columns)}
+""")
             st.stop()
 
         # =================================================
@@ -356,7 +339,7 @@ for i in range(len(temp_df)):
         st.plotly_chart(fig_heat, use_container_width=True)
 
         # =================================================
-        # GAUGE + PIE
+        # GAUGE CHART
         # =================================================
         g1, g2 = st.columns(2)
 
@@ -371,6 +354,7 @@ for i in range(len(temp_df)):
 
         g1.plotly_chart(fig_gauge, use_container_width=True)
 
+        # PIE CHART
         fig_pie = px.pie(
             summary.head(10),
             names="Customer Name",
@@ -382,24 +366,26 @@ for i in range(len(temp_df)):
         g2.plotly_chart(fig_pie, use_container_width=True)
 
         # =================================================
-        # AI INSIGHTS
+        # BUSINESS INSIGHTS
         # =================================================
         st.markdown("## 🤖 Business Insights")
 
-        best_customer = summary.iloc[0]["Customer Name"]
-        worst_customer = summary.iloc[-1]["Customer Name"]
+        if len(summary) > 0:
 
-        st.info(f"""
-        ✅ Best Performing Customer:
-        {best_customer}
+            best_customer = summary.iloc[0]["Customer Name"]
+            worst_customer = summary.iloc[-1]["Customer Name"]
 
-        ⚠️ Lowest Performing Customer:
-        {worst_customer}
+            st.info(f"""
+✅ Best Performing Customer:
+{best_customer}
 
-        📊 Focus on reducing variance and improving UCS conversion.
+⚠️ Lowest Performing Customer:
+{worst_customer}
 
-        🚀 Improve low-performing accounts to increase overall execution.
-        """)
+📊 Focus on reducing variance and improving UCS conversion.
+
+🚀 Improve low-performing accounts to increase overall execution.
+""")
 
         # =================================================
         # DATA TABLE
