@@ -92,8 +92,29 @@ if uploaded_file is not None:
                 .str.upper()
                 .tolist()
             )
+ # =================================================
+# FIND HEADER ROW
+# =================================================
+header_row = 0
 
-            row_text = " ".join(row_values)
+for i in range(len(temp_df)):
+
+    row_values = (
+        temp_df.iloc[i]
+        .fillna("")
+        .astype(str)
+        .str.upper()
+        .tolist()
+    )
+
+    row_text = " ".join([str(x) for x in row_values])
+
+    if (
+        "CUSTOMER" in row_text
+        and "SNOP" in row_text
+    ):
+        header_row = i
+        break
 
             if (
                 "CUSTOMER" in row_text
