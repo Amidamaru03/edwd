@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
+import numpy as np
 
 # =========================================================
 # PAGE CONFIG
@@ -109,7 +110,7 @@ if uploaded_file is not None:
         uploaded_file.seek(0)
 
         # =================================================
-        # READ FILE USING DETECTED HEADER
+        # READ FILE USING HEADER
         # =================================================
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file, header=header_row)
@@ -128,7 +129,7 @@ if uploaded_file is not None:
         )
 
         # =================================================
-        # AUTO RENAME COLUMNS
+        # AUTO MAP COLUMNS
         # =================================================
         rename_map = {}
 
@@ -195,10 +196,16 @@ Found Columns:
                 errors="coerce"
             ).fillna(0)
 
+        # =================================================
+        # REMOVE INVALID VALUES
+        # =================================================
+        df = df.replace([np.inf, -np.inf], 0)
+        df = df.fillna(0)
+
         st.success("File uploaded successfully!")
 
         # =================================================
-        # SIDEBAR FILTERS
+        # SIDEBAR FILTER
         # =================================================
         st.sidebar.header("🔍 Filters")
 
@@ -231,45 +238,28 @@ Found Columns:
 
         k1, k2, k3, k4, k5 = st.columns(5)
 
-        with k1:
+        def kpi_card(title, value):
             st.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-title">👥 Total Customers</div>
-                <div class="kpi-value">{total_customers:,}</div>
+                <div class="kpi-title">{title}</div>
+                <div class="kpi-value">{value}</div>
             </div>
             """, unsafe_allow_html=True)
+
+        with k1:
+            kpi_card("👥 Total Customers", f"{total_customers:,}")
 
         with k2:
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-title">📦 Total UCS</div>
-                <div class="kpi-value">{total_ucs:,.0f}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            kpi_card("📦 Total UCS", f"{total_ucs:,.0f}")
 
         with k3:
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-title">🎯 Total SNOP</div>
-                <div class="kpi-value">{total_snop:,.0f}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            kpi_card("🎯 Total SNOP", f"{total_snop:,.0f}")
 
         with k4:
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-title">⚠️ Variance To Hit</div>
-                <div class="kpi-value">{total_variance:,.0f}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            kpi_card("⚠️ Variance To Hit", f"{total_variance:,.0f}")
 
         with k5:
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-title">📈 Avg ACV VS S7OP</div>
-                <div class="kpi-value">{avg_acv:.2f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
+            kpi_card("📈 Avg ACV VS S7OP", f"{avg_acv:.2f}%")
 
         # =================================================
         # SUMMARY TABLE
@@ -290,9 +280,24 @@ Found Columns:
         )
 
         # =================================================
+        # FIX NEGATIVE BUBBLE SIZE
+        # =================================================
+        summary["Bubble Size"] = (
+            summary["VARIANCE TO HIT"]
+            .abs()
+            .fillna(1)
+        )
+
+        summary["Bubble Size"] = np.where(
+            summary["Bubble Size"] <= 0,
+            1,
+            summary["Bubble Size"]
+        )
+
+        # =================================================
         # CHARTS
         # =================================================
-        st.markdown("## 📊 Analytics")
+        st.markdown("## 📊 Advanced Analytics")
 
         c1, c2 = st.columns(2)
 
@@ -313,7 +318,7 @@ Found Columns:
             summary,
             x="SNOP",
             y="TOTAL UCS",
-            size="VARIANCE TO HIT",
+            size="Bubble Size",
             color="ACV VS S7OP",
             hover_name="Customer Name",
             title="SNOP vs TOTAL UCS"
@@ -333,19 +338,20 @@ Found Columns:
 
         fig_heat = px.imshow(
             heatmap_df,
-            aspect="auto"
+            aspect="auto",
+            title="Customer Variance Heatmap"
         )
 
         st.plotly_chart(fig_heat, use_container_width=True)
 
         # =================================================
-        # GAUGE CHART
+        # GAUGE + PIE
         # =================================================
         g1, g2 = st.columns(2)
 
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number",
-            value=avg_acv,
+            value=float(avg_acv),
             title={'text': "ACV VS S7OP"},
             gauge={
                 'axis': {'range': [0, 150]}
@@ -354,7 +360,6 @@ Found Columns:
 
         g1.plotly_chart(fig_gauge, use_container_width=True)
 
-        # PIE CHART
         fig_pie = px.pie(
             summary.head(10),
             names="Customer Name",
@@ -373,24 +378,38 @@ Found Columns:
         if len(summary) > 0:
 
             best_customer = summary.iloc[0]["Customer Name"]
+            best_ucs = summary.iloc[0]["TOTAL UCS"]
+
             worst_customer = summary.iloc[-1]["Customer Name"]
+            worst_ucs = summary.iloc[-1]["TOTAL UCS"]
+
+            below_target = summary[
+                summary["ACV VS S7OP"] < 100
+            ].shape[0]
 
             st.info(f"""
 ✅ Best Performing Customer:
 {best_customer}
+with TOTAL UCS of {best_ucs:,.0f}
 
 ⚠️ Lowest Performing Customer:
 {worst_customer}
+with TOTAL UCS of {worst_ucs:,.0f}
 
-📊 Focus on reducing variance and improving UCS conversion.
+📉 Customers Below Target:
+{below_target}
 
-🚀 Improve low-performing accounts to increase overall execution.
+🚀 Recommendations:
+- Focus on reducing variance
+- Improve UCS conversion
+- Strengthen low-performing accounts
+- Monitor ACV achievement regularly
 """)
 
         # =================================================
         # DATA TABLE
         # =================================================
-        st.markdown("## 📋 Dataset")
+        st.markdown("## 📋 Detailed Dataset")
 
         st.dataframe(
             filtered_df,
@@ -403,7 +422,7 @@ Found Columns:
         # =================================================
         output = BytesIO()
 
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             filtered_df.to_excel(writer, index=False)
 
         st.download_button(
