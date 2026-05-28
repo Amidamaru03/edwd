@@ -1,431 +1,369 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from io import BytesIO
 import numpy as np
 
-# =========================================================
+# =========================
+# SAFE PLOTLY IMPORT
+# =========================
+try:
+    import plotly.express as px
+    plotly_available = True
+except:
+    plotly_available = False
+
+# =========================
 # PAGE CONFIG
-# =========================================================
+# =========================
 st.set_page_config(
-    page_title="BD RYAN EDWD Sales Dashboard",
+    page_title="P5 Dynamic Dashboard",
     page_icon="📊",
     layout="wide"
 )
 
-# =========================================================
-# CUSTOM CSS
-# =========================================================
-st.markdown("""
-<style>
-
-.main {
-    background-color: #0f172a;
-    color: white;
-}
-
-[data-testid="stSidebar"] {
-    background-color: #111827;
-}
-
-.kpi-card {
-    padding: 20px;
-    border-radius: 18px;
-    background: linear-gradient(135deg,#1e3a8a,#2563eb);
-    color: white;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-    margin-bottom: 10px;
-}
-
-.kpi-title {
-    font-size: 14px;
-    opacity: 0.8;
-}
-
-.kpi-value {
-    font-size: 30px;
-    font-weight: bold;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# =========================================================
+# =========================
 # TITLE
-# =========================================================
-st.title("📊 BD RYAN EDWD Sales Performance Dashboard")
-st.caption("Interactive enterprise analytics dashboard")
+# =========================
+st.title("📊 P5 Dynamic Dashboard")
 
-# =========================================================
-# FILE UPLOADER
-# =========================================================
-uploaded_file = st.file_uploader(
-    "Upload Excel or CSV File",
-    type=["xlsx", "xls", "csv"]
+st.markdown("---")
+
+# =========================
+# LOAD EXCEL FILE
+# =========================
+FILE_PATH = "P5 Dynamic Dashboard.xlsx"
+
+@st.cache_data
+def load_data():
+
+    database = pd.read_excel(
+        FILE_PATH,
+        sheet_name="DATABASE"
+    )
+
+    dashboard = pd.read_excel(
+        FILE_PATH,
+        sheet_name="DASHBOARD"
+    )
+
+    lists = pd.read_excel(
+        FILE_PATH,
+        sheet_name="LISTS"
+    )
+
+    return database, dashboard, lists
+
+DATABASE, DASHBOARD, LISTS = load_data()
+
+# =========================
+# CLEAN COLUMN NAMES
+# =========================
+DATABASE.columns = [
+    str(col).strip()
+    for col in DATABASE.columns
+]
+
+# =========================
+# DATE COLUMN
+# =========================
+DATABASE["Del DATE"] = pd.to_datetime(
+    DATABASE["Del DATE"],
+    errors="coerce"
 )
 
-# =========================================================
-# MAIN PROCESS
-# =========================================================
-if uploaded_file is not None:
+# =========================
+# NUMERIC COLUMNS
+# =========================
+numeric_columns = [
+    "UCS",
+    "ORDER QTY",
+    "DELIVER QTY",
+    "OOS"
+]
 
-    try:
+for col in numeric_columns:
 
-        # =================================================
-        # READ FILE WITHOUT HEADER
-        # =================================================
-        if uploaded_file.name.endswith(".csv"):
-            temp_df = pd.read_csv(uploaded_file, header=None)
-        else:
-            temp_df = pd.read_excel(uploaded_file, header=None)
+    if col in DATABASE.columns:
 
-        # =================================================
-        # FIND HEADER ROW
-        # =================================================
-        header_row = 0
+        DATABASE[col] = pd.to_numeric(
+            DATABASE[col],
+            errors="coerce"
+        ).fillna(0)
 
-        for i in range(len(temp_df)):
+# =========================
+# SIDEBAR FILTERS
+# =========================
+st.sidebar.header("FILTERS")
 
-            row_values = (
-                temp_df.iloc[i]
-                .fillna("")
-                .astype(str)
-                .str.upper()
-                .tolist()
-            )
+filtered_df = DATABASE.copy()
 
-            row_text = " ".join([str(x) for x in row_values])
+# OUTLET FILTER
+if "OUTLET NAME" in DATABASE.columns:
 
-            if (
-                "CUSTOMER" in row_text
-                and "SNOP" in row_text
-            ):
-                header_row = i
-                break
+    outlet_options = sorted(
+        DATABASE["OUTLET NAME"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
 
-        # =================================================
-        # RESET FILE POINTER
-        # =================================================
-        uploaded_file.seek(0)
+    selected_outlet = st.sidebar.selectbox(
+        "Select Outlet",
+        ["ALL"] + outlet_options
+    )
 
-        # =================================================
-        # READ FILE USING DETECTED HEADER
-        # =================================================
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file, header=header_row)
-        else:
-            df = pd.read_excel(uploaded_file, header=header_row)
+    if selected_outlet != "ALL":
 
-        # =================================================
-        # CLEAN COLUMN NAMES
-        # =================================================
-        df.columns = (
-            df.columns
+        filtered_df = filtered_df[
+            filtered_df["OUTLET NAME"]
             .astype(str)
-            .str.strip()
-            .str.replace("\n", " ", regex=False)
-            .str.replace("\r", " ", regex=False)
+            == selected_outlet
+        ]
+
+# YEAR FILTER
+year_options = sorted(
+    filtered_df["Del DATE"]
+    .dropna()
+    .dt.year
+    .unique()
+)
+
+selected_year = st.sidebar.selectbox(
+    "Select Year",
+    year_options
+)
+
+filtered_df = filtered_df[
+    filtered_df["Del DATE"].dt.year
+    == selected_year
+]
+
+# MONTH FILTER
+month_options = sorted(
+    filtered_df["Del DATE"]
+    .dropna()
+    .dt.month
+    .unique()
+)
+
+selected_month = st.sidebar.selectbox(
+    "Select Month",
+    month_options
+)
+
+filtered_df = filtered_df[
+    filtered_df["Del DATE"].dt.month
+    == selected_month
+]
+
+# =========================
+# KPI COMPUTATIONS
+# =========================
+act_ucs = (
+    filtered_df["UCS"].sum()
+    if "UCS" in filtered_df.columns
+    else 0
+)
+
+order_qty = (
+    filtered_df["ORDER QTY"].sum()
+    if "ORDER QTY" in filtered_df.columns
+    else 0
+)
+
+deliver_qty = (
+    filtered_df["DELIVER QTY"].sum()
+    if "DELIVER QTY" in filtered_df.columns
+    else 0
+)
+
+oos_total = (
+    filtered_df["OOS"].sum()
+    if "OOS" in filtered_df.columns
+    else 0
+)
+
+transactions = len(filtered_df)
+
+# =========================
+# KPI CARDS
+# =========================
+col1, col2, col3, col4, col5 = st.columns(5)
+
+with col1:
+    st.metric(
+        "ACT UCS",
+        f"{act_ucs:,.0f}"
+    )
+
+with col2:
+    st.metric(
+        "ORDER QTY",
+        f"{order_qty:,.0f}"
+    )
+
+with col3:
+    st.metric(
+        "DELIVER QTY",
+        f"{deliver_qty:,.0f}"
+    )
+
+with col4:
+    st.metric(
+        "OOS",
+        f"{oos_total:,.0f}"
+    )
+
+with col5:
+    st.metric(
+        "TRANSACTIONS",
+        f"{transactions:,}"
+    )
+
+st.markdown("---")
+
+# =========================
+# DAILY UCS TREND
+# =========================
+if "UCS" in filtered_df.columns:
+
+    st.subheader("Daily UCS Trend")
+
+    daily_summary = (
+        filtered_df
+        .groupby("Del DATE", as_index=False)["UCS"]
+        .sum()
+        .sort_values("Del DATE")
+    )
+
+    if plotly_available:
+
+        fig = px.line(
+            daily_summary,
+            x="Del DATE",
+            y="UCS",
+            markers=True,
+            title="Daily UCS Trend"
         )
 
-        # =================================================
-        # AUTO MAP COLUMNS
-        # =================================================
-        rename_map = {}
-
-        for col in df.columns:
-
-            col_upper = str(col).upper()
-
-            if "CUSTOMER" in col_upper and "NAME" in col_upper:
-                rename_map[col] = "Customer Name"
-
-            elif "SNOP" in col_upper:
-                rename_map[col] = "SNOP"
-
-            elif "TOTAL UCS" in col_upper or "UCS" in col_upper:
-                rename_map[col] = "TOTAL UCS"
-
-            elif "ACV" in col_upper:
-                rename_map[col] = "ACV VS S7OP"
-
-            elif "VARIANCE" in col_upper:
-                rename_map[col] = "VARIANCE TO HIT"
-
-        df.rename(columns=rename_map, inplace=True)
-
-        # =================================================
-        # REQUIRED COLUMNS
-        # =================================================
-        required_cols = [
-            "Customer Name",
-            "SNOP",
-            "TOTAL UCS",
-            "ACV VS S7OP",
-            "VARIANCE TO HIT"
-        ]
-
-        missing_cols = [
-            col for col in required_cols
-            if col not in df.columns
-        ]
-
-        if missing_cols:
-            st.error(f"""
-Missing Columns:
-{missing_cols}
-
-Found Columns:
-{list(df.columns)}
-""")
-            st.stop()
-
-        # =================================================
-        # NUMERIC CONVERSION
-        # =================================================
-        numeric_cols = [
-            "SNOP",
-            "TOTAL UCS",
-            "ACV VS S7OP",
-            "VARIANCE TO HIT"
-        ]
-
-        for col in numeric_cols:
-            df[col] = pd.to_numeric(
-                df[col],
-                errors="coerce"
-            ).fillna(0)
-
-        # =================================================
-        # CLEAN INVALID VALUES
-        # =================================================
-        df = df.replace([np.inf, -np.inf], 0)
-        df = df.fillna(0)
-
-        st.success("File uploaded successfully!")
-
-        # =================================================
-        # SIDEBAR FILTERS
-        # =================================================
-        st.sidebar.header("🔍 Filters")
-
-        customer_filter = st.sidebar.multiselect(
-            "Customer Name",
-            options=sorted(df["Customer Name"].dropna().unique()),
-            default=sorted(df["Customer Name"].dropna().unique())
+        st.plotly_chart(
+            fig,
+            use_container_width=True
         )
 
-        # =================================================
-        # FILTER DATA
-        # =================================================
-        filtered_df = df[
-            df["Customer Name"].isin(customer_filter)
-        ]
+    else:
 
-        # =================================================
-        # KPI CALCULATIONS
-        # =================================================
-        total_customers = filtered_df["Customer Name"].nunique()
-        total_ucs = filtered_df["TOTAL UCS"].sum()
-        total_snop = filtered_df["SNOP"].sum()
-        total_variance = filtered_df["VARIANCE TO HIT"].sum()
-        avg_acv = filtered_df["ACV VS S7OP"].mean()
+        st.line_chart(
+            daily_summary.set_index("Del DATE")["UCS"]
+        )
 
-        # =================================================
-        # KPI CARDS
-        # =================================================
-        st.markdown("## 📌 KPI Overview")
+# =========================
+# TOP PRODUCTS
+# =========================
+if "Description" in filtered_df.columns:
 
-        k1, k2, k3, k4, k5 = st.columns(5)
+    st.subheader("Top 10 Products")
 
-        def kpi_card(title, value):
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-title">{title}</div>
-                <div class="kpi-value">{value}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    product_summary = (
+        filtered_df
+        .groupby("Description", as_index=False)["UCS"]
+        .sum()
+        .sort_values("UCS", ascending=False)
+        .head(10)
+    )
 
-        with k1:
-            kpi_card("👥 Total Customers", f"{total_customers:,}")
+    if plotly_available:
 
-        with k2:
-            kpi_card("📦 Total UCS", f"{total_ucs:,.0f}")
+        fig2 = px.bar(
+            product_summary,
+            x="Description",
+            y="UCS",
+            title="Top 10 Products by UCS"
+        )
 
-        with k3:
-            kpi_card("🎯 Total SNOP", f"{total_snop:,.0f}")
+        st.plotly_chart(
+            fig2,
+            use_container_width=True
+        )
 
-        with k4:
-            kpi_card("⚠️ Variance To Hit", f"{total_variance:,.0f}")
+    else:
 
-        with k5:
-            kpi_card("📈 Avg ACV VS S7OP", f"{avg_acv:.2f}%")
+        st.bar_chart(
+            product_summary.set_index("Description")["UCS"]
+        )
 
-        # =================================================
-        # SUMMARY TABLE
-        # =================================================
-        summary = filtered_df.groupby(
-            "Customer Name",
-            as_index=False
-        ).agg({
-            "TOTAL UCS": "sum",
-            "SNOP": "sum",
-            "VARIANCE TO HIT": "sum",
-            "ACV VS S7OP": "mean"
+# =========================
+# OUTLET PERFORMANCE
+# =========================
+st.subheader("Outlet Performance")
+
+group_columns = [
+    col for col in [
+        "OUTLET NUMBER",
+        "OUTLET NAME"
+    ]
+    if col in filtered_df.columns
+]
+
+if len(group_columns) > 0:
+
+    performance = (
+        filtered_df
+        .groupby(group_columns, as_index=False)
+        .agg({
+            "UCS": "sum",
+            "ORDER QTY": "sum",
+            "DELIVER QTY": "sum",
+            "OOS": "sum"
         })
+    )
 
-        summary = summary.sort_values(
-            by="TOTAL UCS",
-            ascending=False
-        )
+    st.dataframe(
+        performance,
+        use_container_width=True,
+        height=400
+    )
 
-        # =================================================
-        # FIX BUBBLE SIZE
-        # =================================================
-        summary["Bubble Size"] = (
-            summary["VARIANCE TO HIT"]
-            .abs()
-            .replace(0, 1)
-        )
+# =========================
+# DATABASE SHEET
+# =========================
+st.subheader("DATABASE SHEET")
 
-        # =================================================
-        # CHARTS
-        # =================================================
-        st.markdown("## 📊 Advanced Analytics")
+st.dataframe(
+    filtered_df,
+    use_container_width=True,
+    height=500
+)
 
-        c1, c2 = st.columns(2)
+# =========================
+# DASHBOARD SHEET
+# =========================
+st.subheader("DASHBOARD SHEET")
 
-        # BAR CHART
-        fig_bar = px.bar(
-            summary.head(10),
-            x="TOTAL UCS",
-            y="Customer Name",
-            orientation="h",
-            title="Top Customers by TOTAL UCS",
-            text_auto=True
-        )
+st.dataframe(
+    DASHBOARD,
+    use_container_width=True,
+    height=500
+)
 
-        c1.plotly_chart(fig_bar, use_container_width=True)
+# =========================
+# DOWNLOAD BUTTON
+# =========================
+csv = filtered_df.to_csv(
+    index=False
+).encode("utf-8")
 
-        # SCATTER CHART
-        fig_scatter = px.scatter(
-            summary,
-            x="SNOP",
-            y="TOTAL UCS",
-            size="Bubble Size",
-            color="ACV VS S7OP",
-            hover_name="Customer Name",
-            title="SNOP vs TOTAL UCS"
-        )
+st.download_button(
+    label="Download Filtered Database",
+    data=csv,
+    file_name="filtered_database.csv",
+    mime="text/csv"
+)
 
-        c2.plotly_chart(fig_scatter, use_container_width=True)
+# =========================
+# FOOTER
+# =========================
+st.markdown("---")
 
-        # =================================================
-        # HEATMAP
-        # =================================================
-        st.markdown("### 🔥 Variance Heatmap")
-
-        heatmap_df = summary.pivot_table(
-            values="VARIANCE TO HIT",
-            index="Customer Name"
-        )
-
-        fig_heat = px.imshow(
-            heatmap_df,
-            aspect="auto",
-            title="Customer Variance Heatmap"
-        )
-
-        st.plotly_chart(fig_heat, use_container_width=True)
-
-        # =================================================
-        # GAUGE CHART
-        # =================================================
-        g1, g2 = st.columns(2)
-
-        fig_gauge = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=float(avg_acv),
-            title={'text': "ACV VS S7OP"},
-            gauge={
-                'axis': {'range': [0, 150]}
-            }
-        ))
-
-        g1.plotly_chart(fig_gauge, use_container_width=True)
-
-        # PIE CHART
-        fig_pie = px.pie(
-            summary.head(10),
-            names="Customer Name",
-            values="TOTAL UCS",
-            hole=0.5,
-            title="Customer Contribution"
-        )
-
-        g2.plotly_chart(fig_pie, use_container_width=True)
-
-        # =================================================
-        # BUSINESS INSIGHTS
-        # =================================================
-        st.markdown("## 🤖 Business Insights")
-
-        if len(summary) > 0:
-
-            best_customer = summary.iloc[0]["Customer Name"]
-            best_ucs = summary.iloc[0]["TOTAL UCS"]
-
-            worst_customer = summary.iloc[-1]["Customer Name"]
-            worst_ucs = summary.iloc[-1]["TOTAL UCS"]
-
-            below_target = summary[
-                summary["ACV VS S7OP"] < 100
-            ].shape[0]
-
-            st.info(f"""
-✅ Best Performing Customer:
-{best_customer}
-with TOTAL UCS of {best_ucs:,.0f}
-
-⚠️ Lowest Performing Customer:
-{worst_customer}
-with TOTAL UCS of {worst_ucs:,.0f}
-
-📉 Customers Below Target:
-{below_target}
-
-🚀 Recommendations:
-- Focus on reducing variance
-- Improve UCS conversion
-- Strengthen low-performing accounts
-- Monitor ACV achievement regularly
-""")
-
-        # =================================================
-        # DATA TABLE
-        # =================================================
-        st.markdown("## 📋 Detailed Dataset")
-
-        st.dataframe(
-            filtered_df,
-            use_container_width=True,
-            height=500
-        )
-
-        # =================================================
-        # DOWNLOAD BUTTON
-        # =================================================
-        csv_data = filtered_df.to_csv(index=False).encode('utf-8')
-
-        st.download_button(
-            label="📥 Download Filtered Data",
-            data=csv_data,
-            file_name="filtered_dashboard.csv",
-            mime="text/csv"
-        )
-
-    except Exception as e:
-        st.error(f"Error: {e}")
-
-else:
-    st.info("Upload an Excel or CSV file to begin.")
+st.caption(
+    "Dynamic Dashboard Converted from Excel to Python Successfully"
+)
