@@ -28,31 +28,46 @@ st.title("📊 P5 Dynamic Dashboard")
 st.markdown("---")
 
 # =========================
-# LOAD EXCEL FILE
+# FILE UPLOADER
 # =========================
-FILE_PATH = "P5 Dynamic Dashboard.xlsx"
+uploaded_file = st.sidebar.file_uploader(
+    "Upload P5 Dynamic Dashboard.xlsx",
+    type=["xlsx"]
+)
 
+if uploaded_file is None:
+    st.info("Please upload your Excel file to continue.")
+    st.stop()
+
+# =========================
+# LOAD DATA
+# =========================
 @st.cache_data
-def load_data():
+def load_data(file):
 
     database = pd.read_excel(
-        FILE_PATH,
+        file,
         sheet_name="DATABASE"
     )
 
     dashboard = pd.read_excel(
-        FILE_PATH,
+        file,
         sheet_name="DASHBOARD"
     )
 
     lists = pd.read_excel(
-        FILE_PATH,
+        file,
         sheet_name="LISTS"
     )
 
     return database, dashboard, lists
 
-DATABASE, DASHBOARD, LISTS = load_data()
+try:
+    DATABASE, DASHBOARD, LISTS = load_data(uploaded_file)
+
+except Exception as e:
+    st.error(f"Error loading Excel file: {e}")
+    st.stop()
 
 # =========================
 # CLEAN COLUMN NAMES
@@ -61,6 +76,31 @@ DATABASE.columns = [
     str(col).strip()
     for col in DATABASE.columns
 ]
+
+# =========================
+# CHECK REQUIRED COLUMN
+# =========================
+required_columns = [
+    "Del DATE",
+    "OUTLET NAME",
+    "UCS",
+    "ORDER QTY",
+    "DELIVER QTY",
+    "OOS"
+]
+
+missing_columns = [
+    col for col in required_columns
+    if col not in DATABASE.columns
+]
+
+if len(missing_columns) > 0:
+
+    st.error(
+        f"Missing required columns: {missing_columns}"
+    )
+
+    st.stop()
 
 # =========================
 # DATE COLUMN
@@ -82,12 +122,10 @@ numeric_columns = [
 
 for col in numeric_columns:
 
-    if col in DATABASE.columns:
-
-        DATABASE[col] = pd.to_numeric(
-            DATABASE[col],
-            errors="coerce"
-        ).fillna(0)
+    DATABASE[col] = pd.to_numeric(
+        DATABASE[col],
+        errors="coerce"
+    ).fillna(0)
 
 # =========================
 # SIDEBAR FILTERS
@@ -96,36 +134,42 @@ st.sidebar.header("FILTERS")
 
 filtered_df = DATABASE.copy()
 
+# =========================
 # OUTLET FILTER
-if "OUTLET NAME" in DATABASE.columns:
+# =========================
+outlet_options = sorted(
+    DATABASE["OUTLET NAME"]
+    .dropna()
+    .astype(str)
+    .unique()
+)
 
-    outlet_options = sorted(
-        DATABASE["OUTLET NAME"]
-        .dropna()
+selected_outlet = st.sidebar.selectbox(
+    "Select Outlet",
+    ["ALL"] + outlet_options
+)
+
+if selected_outlet != "ALL":
+
+    filtered_df = filtered_df[
+        filtered_df["OUTLET NAME"]
         .astype(str)
-        .unique()
-    )
+        == selected_outlet
+    ]
 
-    selected_outlet = st.sidebar.selectbox(
-        "Select Outlet",
-        ["ALL"] + outlet_options
-    )
-
-    if selected_outlet != "ALL":
-
-        filtered_df = filtered_df[
-            filtered_df["OUTLET NAME"]
-            .astype(str)
-            == selected_outlet
-        ]
-
+# =========================
 # YEAR FILTER
+# =========================
 year_options = sorted(
     filtered_df["Del DATE"]
     .dropna()
     .dt.year
     .unique()
 )
+
+if len(year_options) == 0:
+    st.error("No valid dates found in Del DATE column.")
+    st.stop()
 
 selected_year = st.sidebar.selectbox(
     "Select Year",
@@ -137,7 +181,9 @@ filtered_df = filtered_df[
     == selected_year
 ]
 
+# =========================
 # MONTH FILTER
+# =========================
 month_options = sorted(
     filtered_df["Del DATE"]
     .dropna()
@@ -158,30 +204,10 @@ filtered_df = filtered_df[
 # =========================
 # KPI COMPUTATIONS
 # =========================
-act_ucs = (
-    filtered_df["UCS"].sum()
-    if "UCS" in filtered_df.columns
-    else 0
-)
-
-order_qty = (
-    filtered_df["ORDER QTY"].sum()
-    if "ORDER QTY" in filtered_df.columns
-    else 0
-)
-
-deliver_qty = (
-    filtered_df["DELIVER QTY"].sum()
-    if "DELIVER QTY" in filtered_df.columns
-    else 0
-)
-
-oos_total = (
-    filtered_df["OOS"].sum()
-    if "OOS" in filtered_df.columns
-    else 0
-)
-
+act_ucs = filtered_df["UCS"].sum()
+order_qty = filtered_df["ORDER QTY"].sum()
+deliver_qty = filtered_df["DELIVER QTY"].sum()
+oos_total = filtered_df["OOS"].sum()
 transactions = len(filtered_df)
 
 # =========================
@@ -224,37 +250,35 @@ st.markdown("---")
 # =========================
 # DAILY UCS TREND
 # =========================
-if "UCS" in filtered_df.columns:
+st.subheader("Daily UCS Trend")
 
-    st.subheader("Daily UCS Trend")
+daily_summary = (
+    filtered_df
+    .groupby("Del DATE", as_index=False)["UCS"]
+    .sum()
+    .sort_values("Del DATE")
+)
 
-    daily_summary = (
-        filtered_df
-        .groupby("Del DATE", as_index=False)["UCS"]
-        .sum()
-        .sort_values("Del DATE")
+if plotly_available:
+
+    fig = px.line(
+        daily_summary,
+        x="Del DATE",
+        y="UCS",
+        markers=True,
+        title="Daily UCS Trend"
     )
 
-    if plotly_available:
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
 
-        fig = px.line(
-            daily_summary,
-            x="Del DATE",
-            y="UCS",
-            markers=True,
-            title="Daily UCS Trend"
-        )
+else:
 
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-    else:
-
-        st.line_chart(
-            daily_summary.set_index("Del DATE")["UCS"]
-        )
+    st.line_chart(
+        daily_summary.set_index("Del DATE")["UCS"]
+    )
 
 # =========================
 # TOP PRODUCTS
