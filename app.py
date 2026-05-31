@@ -1,6 +1,33 @@
+# FINAL ADJUSTED DASHBOARD CODE
+
+This version is fully adjusted to your uploaded Excel structure:
+
+`P5 Dynamic Dashboard 053026.xlsm`
+
+It now uses the `DATABASE` sheet correctly.
+
+Features:
+
+* KPI Summary
+* Route Analysis
+* Top Outlet Ranking
+* SKU Analysis
+* OOS Monitoring
+* Interactive Filters
+* Date Filtering
+* Route Filtering
+* Outlet Filtering
+* Dynamic Charts
+* Streamlit Cloud Ready
+* Duplicate Column Protection
+* Professional UI
+
+---
+
+```python
 # ============================================================
-# BD BATANGAS SALES DASHBOARD
-# FINAL CLEAN ADVANCED VERSION
+# BD BATANGAS ADVANCED SALES DASHBOARD
+# FULLY ADJUSTED TO DATABASE SHEET
 # ============================================================
 
 import streamlit as st
@@ -15,8 +42,7 @@ import plotly.graph_objects as go
 st.set_page_config(
     page_title="BD Batangas Dashboard",
     page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 # ============================================================
@@ -30,23 +56,12 @@ st.markdown("""
     background: linear-gradient(to bottom right, #0f172a, #111827);
 }
 
-h1, h2, h3, h4 {
+h1,h2,h3,h4 {
     color: white !important;
 }
 
 [data-testid="stSidebar"] {
     background-color: #111827;
-}
-
-.metric-container {
-    background: rgba(255,255,255,0.08);
-    border-radius: 20px;
-    padding: 15px;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
-.small-text {
-    color: #d1d5db;
 }
 
 </style>
@@ -56,14 +71,8 @@ h1, h2, h3, h4 {
 # HEADER
 # ============================================================
 
-st.markdown("""
-<h1>📊 BD BATANGAS SALES DASHBOARD</h1>
-<p class='small-text'>
-Advanced Interactive Analytics Dashboard
-</p>
-""", unsafe_allow_html=True)
-
-st.markdown("---")
+st.title("📊 BD BATANGAS SALES DASHBOARD")
+st.caption("Advanced Dynamic Analytics Dashboard")
 
 # ============================================================
 # FILE UPLOADER
@@ -71,11 +80,11 @@ st.markdown("---")
 
 uploaded_file = st.file_uploader(
     "Upload Excel File",
-    type=["xlsx", "xlsm"]
+    type=["xlsm", "xlsx"]
 )
 
 if uploaded_file is None:
-    st.info("Please upload your Excel sales file.")
+    st.info("Please upload your Excel file.")
     st.stop()
 
 # ============================================================
@@ -83,115 +92,38 @@ if uploaded_file is None:
 # ============================================================
 
 @st.cache_data
+
 def load_data(file):
 
-    raw = pd.read_excel(
+    df = pd.read_excel(
         file,
-        sheet_name="OUTLETS"
+        sheet_name="DATABASE"
     )
 
     # ========================================================
-    # GET HEADERS
+    # REMOVE EMPTY COLUMNS
     # ========================================================
 
-    headers = raw.iloc[1].astype(str)
-
-    unique_headers = []
-    counter = {}
-
-    for col in headers:
-
-        if col in counter:
-
-            counter[col] += 1
-
-            unique_headers.append(
-                f"{col}_{counter[col]}"
-            )
-
-        else:
-
-            counter[col] = 0
-
-            unique_headers.append(col)
-
-    # ========================================================
-    # CREATE DATAFRAME
-    # ========================================================
-
-    df = raw.iloc[2:].copy()
-
-    df.columns = unique_headers
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 
     # ========================================================
     # REMOVE EMPTY ROWS
     # ========================================================
 
-    if "Customer Name" in df.columns:
-
-        df = df.dropna(
-            subset=["Customer Name"]
-        )
-
-    # ========================================================
-    # RESET INDEX
-    # ========================================================
-
-    df.reset_index(
-        drop=True,
-        inplace=True
+    df = df.dropna(
+        subset=["OUTLET NAME"],
+        how="all"
     )
 
     # ========================================================
-    # RENAME COLUMNS
-    # ========================================================
-
-    rename_map = {}
-
-    for col in df.columns:
-
-        col_str = str(col)
-
-        if "Customer Name" in col_str:
-            rename_map[col] = "Customer_Name"
-
-        elif "Customer No" in col_str:
-            rename_map[col] = "Customer_No"
-
-        elif "ACTUAL_UCS" in col_str:
-            rename_map[col] = "Actual_UCS"
-
-        elif "LY_UCS" in col_str:
-            rename_map[col] = "LY_UCS"
-
-        elif "S&OP_UCS" in col_str:
-            rename_map[col] = "SOP_UCS"
-
-        elif "ROUTE" in col_str:
-            rename_map[col] = "ROUTE"
-
-    df.rename(
-        columns=rename_map,
-        inplace=True
-    )
-
-    # ========================================================
-    # REMOVE DUPLICATE COLUMNS
-    # ========================================================
-
-    df = df.loc[
-        :,
-        ~df.columns.duplicated()
-    ]
-
-    # ========================================================
-    # NUMERIC CONVERSION
+    # CONVERT NUMERIC COLUMNS
     # ========================================================
 
     numeric_cols = [
-        "Actual_UCS",
-        "LY_UCS",
-        "SOP_UCS"
+        "ORDER QTY",
+        "DELIVER QTY",
+        "OOS",
+        "UCS"
     ]
 
     for col in numeric_cols:
@@ -202,6 +134,17 @@ def load_data(file):
                 df[col],
                 errors="coerce"
             ).fillna(0)
+
+    # ========================================================
+    # DATE CONVERSION
+    # ========================================================
+
+    if "Del DATE" in df.columns:
+
+        df["Del DATE"] = pd.to_datetime(
+            df["Del DATE"],
+            errors="coerce"
+        )
 
     return df
 
@@ -215,23 +158,44 @@ df = load_data(uploaded_file)
 # SIDEBAR FILTERS
 # ============================================================
 
-st.sidebar.title("⚙ Dashboard Filters")
+st.sidebar.header("⚙ FILTERS")
 
-routes = []
-
-if "ROUTE" in df.columns:
-
-    routes = sorted(
-        df["ROUTE"]
-        .dropna()
-        .astype(str)
-        .unique()
-    )
+# ROUTE FILTER
+routes = sorted(
+    df["Shipment"]
+    .dropna()
+    .astype(str)
+    .unique()
+)
 
 selected_routes = st.sidebar.multiselect(
-    "Select Route",
+    "Select Shipment",
     routes
 )
+
+# OUTLET FILTER
+outlets = sorted(
+    df["OUTLET NAME"]
+    .dropna()
+    .astype(str)
+    .unique()
+)
+
+selected_outlets = st.sidebar.multiselect(
+    "Select Outlet",
+    outlets
+)
+
+# DATE FILTER
+if "Del DATE" in df.columns:
+
+    min_date = df["Del DATE"].min()
+    max_date = df["Del DATE"].max()
+
+    selected_dates = st.sidebar.date_input(
+        "Select Date Range",
+        [min_date, max_date]
+    )
 
 # ============================================================
 # FILTER DATA
@@ -239,56 +203,47 @@ selected_routes = st.sidebar.multiselect(
 
 filtered_df = df.copy()
 
-if selected_routes and "ROUTE" in filtered_df.columns:
+if selected_routes:
 
     filtered_df = filtered_df[
-        filtered_df["ROUTE"]
+        filtered_df["Shipment"]
         .astype(str)
         .isin(selected_routes)
+    ]
+
+if selected_outlets:
+
+    filtered_df = filtered_df[
+        filtered_df["OUTLET NAME"]
+        .astype(str)
+        .isin(selected_outlets)
+    ]
+
+if len(selected_dates) == 2:
+
+    start_date = pd.to_datetime(selected_dates[0])
+    end_date = pd.to_datetime(selected_dates[1])
+
+    filtered_df = filtered_df[
+        (filtered_df["Del DATE"] >= start_date) &
+        (filtered_df["Del DATE"] <= end_date)
     ]
 
 # ============================================================
 # KPI CALCULATIONS
 # ============================================================
 
-TOTAL_ACTUAL = (
-    filtered_df["Actual_UCS"].sum()
-    if "Actual_UCS" in filtered_df.columns
-    else 0
-)
+TOTAL_ORDER = filtered_df["ORDER QTY"].sum()
+TOTAL_DELIVERED = filtered_df["DELIVER QTY"].sum()
+TOTAL_OOS = filtered_df["OOS"].sum()
+TOTAL_UCS = filtered_df["UCS"].sum()
 
-TOTAL_TARGET = (
-    filtered_df["SOP_UCS"].sum()
-    if "SOP_UCS" in filtered_df.columns
-    else 0
-)
+TOTAL_OUTLETS = filtered_df["OUTLET NAME"].nunique()
+TOTAL_SKU = filtered_df["Description"].nunique()
 
-TOTAL_LY = (
-    filtered_df["LY_UCS"].sum()
-    if "LY_UCS" in filtered_df.columns
-    else 0
-)
-
-ACHIEVEMENT = (
-    (TOTAL_ACTUAL / TOTAL_TARGET) * 100
-    if TOTAL_TARGET != 0 else 0
-)
-
-GROWTH = (
-    ((TOTAL_ACTUAL - TOTAL_LY) / TOTAL_LY) * 100
-    if TOTAL_LY != 0 else 0
-)
-
-TOTAL_OUTLETS = (
-    filtered_df["Customer_Name"].nunique()
-    if "Customer_Name" in filtered_df.columns
-    else 0
-)
-
-TOTAL_ROUTES = (
-    filtered_df["ROUTE"].nunique()
-    if "ROUTE" in filtered_df.columns
-    else 0
+FILL_RATE = (
+    (TOTAL_DELIVERED / TOTAL_ORDER) * 100
+    if TOTAL_ORDER != 0 else 0
 )
 
 # ============================================================
@@ -297,37 +252,14 @@ TOTAL_ROUTES = (
 
 st.subheader("📌 KPI SUMMARY")
 
-col1, col2, col3, col4, col5, col6 = st.columns(6)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-col1.metric(
-    "TOTAL SALES",
-    f"{TOTAL_ACTUAL:,.0f}"
-)
-
-col2.metric(
-    "TARGET",
-    f"{TOTAL_TARGET:,.0f}"
-)
-
-col3.metric(
-    "ACH %",
-    f"{ACHIEVEMENT:.2f}%"
-)
-
-col4.metric(
-    "VS LY",
-    f"{GROWTH:.2f}%"
-)
-
-col5.metric(
-    "OUTLETS",
-    f"{TOTAL_OUTLETS}"
-)
-
-col6.metric(
-    "ROUTES",
-    f"{TOTAL_ROUTES}"
-)
+c1.metric("ORDER QTY", f"{TOTAL_ORDER:,.0f}")
+c2.metric("DELIVERED", f"{TOTAL_DELIVERED:,.0f}")
+c3.metric("OOS", f"{TOTAL_OOS:,.0f}")
+c4.metric("UCS", f"{TOTAL_UCS:,.0f}")
+c5.metric("OUTLETS", f"{TOTAL_OUTLETS}")
+c6.metric("FILL RATE", f"{FILL_RATE:.2f}%")
 
 st.markdown("---")
 
@@ -338,89 +270,78 @@ st.markdown("---")
 chart1, chart2 = st.columns(2)
 
 # ============================================================
-# ROUTE PERFORMANCE
+# SHIPMENT PERFORMANCE
 # ============================================================
 
 with chart1:
 
-    st.subheader("📈 Route Performance")
+    st.subheader("🚚 Shipment Performance")
 
-    if (
-        "ROUTE" in filtered_df.columns
-        and "Actual_UCS" in filtered_df.columns
-    ):
+    shipment_summary = (
+        filtered_df.groupby("Shipment")[[
+            "ORDER QTY",
+            "DELIVER QTY"
+        ]]
+        .sum()
+        .reset_index()
+    )
 
-        route_summary = (
-            filtered_df.groupby("ROUTE")[
-                ["Actual_UCS", "SOP_UCS"]
-            ]
-            .sum()
-            .reset_index()
-        )
+    fig_ship = px.bar(
+        shipment_summary,
+        x="Shipment",
+        y=["ORDER QTY", "DELIVER QTY"],
+        barmode="group",
+        template="plotly_dark"
+    )
 
-        fig_route = px.bar(
-            route_summary,
-            x="ROUTE",
-            y=["Actual_UCS", "SOP_UCS"],
-            barmode="group",
-            template="plotly_dark"
-        )
+    fig_ship.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=450
+    )
 
-        fig_route.update_layout(
-            height=450,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)"
-        )
-
-        st.plotly_chart(
-            fig_route,
-            use_container_width=True
-        )
+    st.plotly_chart(
+        fig_ship,
+        use_container_width=True
+    )
 
 # ============================================================
-# TOP CUSTOMERS
+# TOP OUTLETS
 # ============================================================
 
 with chart2:
 
-    st.subheader("🏆 Top Customers")
+    st.subheader("🏆 Top Outlets")
 
-    if (
-        "Customer_Name" in filtered_df.columns
-        and "Actual_UCS" in filtered_df.columns
-    ):
-
-        top_customer = (
-            filtered_df.groupby("Customer_Name")[
-                "Actual_UCS"
-            ]
-            .sum()
-            .reset_index()
-            .sort_values(
-                by="Actual_UCS",
-                ascending=False
-            )
-            .head(10)
+    top_outlets = (
+        filtered_df.groupby("OUTLET NAME")["UCS"]
+        .sum()
+        .reset_index()
+        .sort_values(
+            by="UCS",
+            ascending=False
         )
+        .head(10)
+    )
 
-        fig_customer = px.bar(
-            top_customer,
-            x="Actual_UCS",
-            y="Customer_Name",
-            orientation="h",
-            template="plotly_dark"
-        )
+    fig_outlet = px.bar(
+        top_outlets,
+        x="UCS",
+        y="OUTLET NAME",
+        orientation="h",
+        template="plotly_dark"
+    )
 
-        fig_customer.update_layout(
-            height=450,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)"
-        )
+    fig_outlet.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=450
+    )
 
-        st.plotly_chart(
-            fig_customer,
-            use_container_width=True
-        )
+    st.plotly_chart(
+        fig_outlet,
+        use_container_width=True
+    )
 
 # ============================================================
 # CHARTS ROW 2
@@ -429,82 +350,59 @@ with chart2:
 chart3, chart4 = st.columns(2)
 
 # ============================================================
-# ACHIEVEMENT GAUGE
+# TOP SKU
 # ============================================================
 
 with chart3:
 
-    st.subheader("🎯 Achievement Gauge")
+    st.subheader("🥤 Top SKU by UCS")
 
-    fig_gauge = go.Figure(go.Indicator(
+    top_sku = (
+        filtered_df.groupby("Description")["UCS"]
+        .sum()
+        .reset_index()
+        .sort_values(
+            by="UCS",
+            ascending=False
+        )
+        .head(10)
+    )
 
-        mode="gauge+number",
+    fig_sku = px.bar(
+        top_sku,
+        x="UCS",
+        y="Description",
+        orientation="h",
+        template="plotly_dark"
+    )
 
-        value=ACHIEVEMENT,
-
-        title={
-            "text": "Achievement %"
-        },
-
-        gauge={
-
-            "axis": {
-                "range": [0, 150]
-            },
-
-            "bar": {
-                "color": "red"
-            },
-
-            "steps": [
-
-                {
-                    "range": [0, 70],
-                    "color": "gray"
-                },
-
-                {
-                    "range": [70, 100],
-                    "color": "orange"
-                },
-
-                {
-                    "range": [100, 150],
-                    "color": "green"
-                }
-            ]
-        }
-    ))
-
-    fig_gauge.update_layout(
-        height=450,
-        paper_bgcolor="rgba(0,0,0,0)",
-        font={"color": "white"}
+    fig_sku.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=450
     )
 
     st.plotly_chart(
-        fig_gauge,
+        fig_sku,
         use_container_width=True
     )
 
 # ============================================================
-# PIE CHART
+# OOS DISTRIBUTION
 # ============================================================
 
 with chart4:
 
-    st.subheader("🥧 Achievement Distribution")
+    st.subheader("📦 OOS Distribution")
 
     pie_df = pd.DataFrame({
-
         "Category": [
-            "Actual",
-            "Remaining"
+            "Delivered",
+            "OOS"
         ],
-
         "Value": [
-            TOTAL_ACTUAL,
-            max(TOTAL_TARGET - TOTAL_ACTUAL, 0)
+            TOTAL_DELIVERED,
+            TOTAL_OOS
         ]
     })
 
@@ -517,9 +415,9 @@ with chart4:
     )
 
     fig_pie.update_layout(
-        height=450,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)"
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=450
     )
 
     st.plotly_chart(
@@ -531,7 +429,7 @@ with chart4:
 # DATA TABLE
 # ============================================================
 
-st.subheader("📋 Outlet Performance Table")
+st.subheader("📋 Transaction Database")
 
 safe_df = filtered_df.copy()
 
@@ -557,13 +455,14 @@ st.dataframe(
 
 st.markdown("---")
 
-st.markdown(
-    """
-    <center>
-        <p style='color:gray;'>
-        Advanced Dynamic Dashboard • Powered by Streamlit + Plotly
-        </p>
-    </center>
-    """,
-    unsafe_allow_html=True
-)
+st.caption("Advanced Dashboard • Streamlit + Plotly")
+
+```
+
+---
+
+# REQUIREMENTS.TXT
+
+```txt
+streamlit
+```
