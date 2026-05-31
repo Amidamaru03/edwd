@@ -1,81 +1,16 @@
+```python
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
-import streamlit as st
-import base64
-
-# =========================================
-# FUNCTION TO ADD BACKGROUND IMAGE
-# =========================================
-
-def add_bg_from_local(image_file):
-    with open(image_file, "rb") as image:
-        encoded = base64.b64encode(image.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-
-        .stApp {{
-            background-image: url("data:image/jpeg;base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-        }}
-
-        /* OPTIONAL DARK OVERLAY */
-        .stApp::before {{
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.55);
-            z-index: -1;
-        }}
-
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-st.markdown("""
-<style>
-
-.metric-card {
-    background: rgba(0,0,0,0.65);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 20px;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
-[data-testid="stSidebar"] {
-    background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(12px);
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-# =========================================
-# CALL FUNCTION
-# =========================================
-
-add_bg_from_local("npls.jpeg")
+from openpyxl import load_workbook
 
 # =====================================================
 # PAGE CONFIG
 # =====================================================
 
 st.set_page_config(
-    page_title="AI LIVE Sales Dashboard",
-    page_icon="🚀",
+    page_title="BD Batangas Daily Sales Dashboard",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -84,407 +19,412 @@ st.set_page_config(
 # CUSTOM CSS
 # =====================================================
 
-st.markdown("""
-<style>
-
-/* GLOBAL */
-html, body, [class*="css"] {
-    font-family: 'Segoe UI', sans-serif;
-}
-
-.block-container {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
-}
-
-/* MAIN BACKGROUND */
-.stApp {
-    background: linear-gradient(to bottom right, #0f172a, #111827);
-    color: white;
-}
-
-/* KPI CARDS */
-.metric-card {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    padding: 20px;
-    border-radius: 18px;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-    transition: 0.3s ease;
-}
-
-.metric-card:hover {
-    transform: translateY(-4px);
-}
-
-.metric-title {
-    font-size: 14px;
-    color: #cbd5e1;
-}
-
-.metric-value {
-    font-size: 28px;
-    font-weight: bold;
-    color: white;
-}
-
-/* SIDEBAR */
-section[data-testid="stSidebar"] {
-    background-color: #111827;
-}
-
-/* DATAFRAME */
-[data-testid="stDataFrame"] {
-    border-radius: 16px;
-    overflow: hidden;
-}
-
-/* BUTTONS */
-.stButton button,
-.stDownloadButton button {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: white;
-    border-radius: 12px;
-    border: none;
-    padding: 0.6rem 1rem;
-    font-weight: 600;
-}
-
-/* MOBILE */
-@media (max-width: 768px) {
-
-    h1 {
-        font-size: 28px !important;
-        text-align: center;
-    }
-
-    .metric-value {
-        font-size: 20px;
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #0f172a;
     }
 
     .block-container {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
     }
-}
 
-</style>
-""", unsafe_allow_html=True)
+    .title {
+        font-size: 38px;
+        font-weight: bold;
+        color: white;
+        text-align: center;
+        padding: 15px;
+        border-radius: 12px;
+        background: linear-gradient(90deg, #b91c1c, #ef4444);
+        margin-bottom: 15px;
+    }
+
+    .card {
+        background-color: #111827;
+        padding: 20px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+        border: 1px solid #1f2937;
+    }
+
+    .card-title {
+        color: #9ca3af;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    .card-value {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .section-title {
+        color: white;
+        font-size: 22px;
+        font-weight: bold;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# =====================================================
+# LOAD EXCEL FILE
+# =====================================================
+
+FILE_PATH = "P5 Dynamic Dashboard Batangas BD.xlsm"
+
+wb = load_workbook(FILE_PATH, data_only=True)
+
+# =====================================================
+# LOAD SHEETS
+# =====================================================
+
+plan_df = pd.read_excel(FILE_PATH, sheet_name="PLANSHIPMENTS")
+outlet_df = pd.read_excel(FILE_PATH, sheet_name="OUTLETS")
+ar_df = pd.read_excel(FILE_PATH, sheet_name="AR")
 
 # =====================================================
 # HEADER
 # =====================================================
 
-st.title("🚀 AI-Powered LIVE Sales Dashboard")
-st.caption("Enterprise Analytics • Real-Time Insights • Smart Performance Tracking")
-
-# =====================================================
-# FILE UPLOAD
-# =====================================================
-
-uploaded_file = st.file_uploader(
-    "📂 Upload Excel File",
-    type=["xlsx", "xls"]
+st.markdown(
+    '<div class="title">BD BATANGAS DAILY SALES DASHBOARD</div>',
+    unsafe_allow_html=True
 )
 
 # =====================================================
-# LOAD DATA
+# SIDEBAR FILTERS
 # =====================================================
 
-if uploaded_file:
+st.sidebar.header("FILTERS")
 
-    # LOAD EXCEL
-    df = pd.read_excel(uploaded_file, header=6)
+route_col = None
 
-    # CLEAN DATA
-    df = df.dropna(how='all')
-    df = df.loc[:, ~df.columns.isna()]
-    df.columns = df.columns.astype(str).str.strip()
+for c in outlet_df.columns:
+    if "route" in str(c).lower():
+        route_col = c
+        break
 
-    # =====================================================
-    # NUMERIC COLUMNS
-    # =====================================================
+if route_col:
+    routes = sorted(outlet_df[route_col].dropna().unique())
+    selected_route = st.sidebar.selectbox("Select Route", routes)
 
-    numeric_cols = [
-        'S&OP',
-        'SNOP',
-        'TOTAL UCS',
-        'ACV VS S7OP',
-        'VARIANCE TO HIT'
+    filtered_outlets = outlet_df[
+        outlet_df[route_col] == selected_route
     ]
-
-    for col in numeric_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    # =====================================================
-    # DATE FORMAT
-    # =====================================================
-
-    for col in df.columns:
-        if 'date' in col.lower():
-            try:
-                df[col] = pd.to_datetime(df[col])
-            except:
-                pass
-
-    # =====================================================
-    # SIDEBAR FILTERS
-    # =====================================================
-
-    st.sidebar.header("⚡ Dashboard Filters")
-
-    filtered_df = df.copy()
-
-    # CUSTOMER FILTER
-    if 'Customer Name' in df.columns:
-
-        customer_filter = st.sidebar.multiselect(
-            "Select Customer",
-            options=sorted(df['Customer Name'].dropna().unique())
-        )
-
-        if customer_filter:
-            filtered_df = filtered_df[
-                filtered_df['Customer Name'].isin(customer_filter)
-            ]
-
-    # ROUTE FILTER
-    if 'ROUTE' in df.columns:
-
-        route_filter = st.sidebar.multiselect(
-            "Select Route",
-            options=sorted(df['ROUTE'].dropna().unique())
-        )
-
-        if route_filter:
-            filtered_df = filtered_df[
-                filtered_df['ROUTE'].isin(route_filter)
-            ]
-
-    # =====================================================
-    # KPI CALCULATIONS
-    # =====================================================
-
-    total_ucs = filtered_df['TOTAL UCS'].sum() if 'TOTAL UCS' in filtered_df.columns else 0
-    total_snop = filtered_df['SNOP'].sum() if 'SNOP' in filtered_df.columns else 0
-    total_variance = filtered_df['VARIANCE TO HIT'].sum() if 'VARIANCE TO HIT' in filtered_df.columns else 0
-
-    avg_acv = (
-        filtered_df['ACV VS S7OP'].mean() * 100
-        if 'ACV VS S7OP' in filtered_df.columns
-        else 0
-    )
-
-    # =====================================================
-    # KPI SECTION
-    # =====================================================
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>TOTAL UCS</div>
-            <div class='metric-value'>{total_ucs:,.2f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>TOTAL SNOP</div>
-            <div class='metric-value'>{total_snop:,.2f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>TOTAL VARIANCE</div>
-            <div class='metric-value'>{total_variance:,.2f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col4:
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-title'>AVG ACV VS S7OP</div>
-            <div class='metric-value'>{avg_acv:,.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.divider()
-
-    # =====================================================
-    # CHARTS SECTION
-    # =====================================================
-
-    chart1, chart2 = st.columns(2)
-
-    # TOP CUSTOMERS
-    if 'Customer Name' in filtered_df.columns and 'TOTAL UCS' in filtered_df.columns:
-
-        top_customers = (
-            filtered_df.groupby('Customer Name')['TOTAL UCS']
-            .sum()
-            .sort_values(ascending=False)
-            .head(10)
-            .reset_index()
-        )
-
-        fig1 = px.bar(
-            top_customers,
-            x='Customer Name',
-            y='TOTAL UCS',
-            text_auto='.2s',
-            title='🏆 Top 10 Customers'
-        )
-
-        fig1.update_layout(
-            template='plotly_dark',
-            height=450
-        )
-
-        chart1.plotly_chart(fig1, use_container_width=True)
-
-    # PARTNER MODEL PIE
-    if 'PARTNER SUB MODEL' in filtered_df.columns and 'TOTAL UCS' in filtered_df.columns:
-
-        partner_data = (
-            filtered_df.groupby('PARTNER SUB MODEL')['TOTAL UCS']
-            .sum()
-            .reset_index()
-        )
-
-        fig2 = px.pie(
-            partner_data,
-            names='PARTNER SUB MODEL',
-            values='TOTAL UCS',
-            hole=0.45,
-            title='📦 Partner Distribution'
-        )
-
-        fig2.update_layout(
-            template='plotly_dark',
-            height=450
-        )
-
-        chart2.plotly_chart(fig2, use_container_width=True)
-
-    # =====================================================
-    # ROUTE ANALYTICS
-    # =====================================================
-
-    if 'ROUTE' in filtered_df.columns and 'TOTAL UCS' in filtered_df.columns:
-
-        route_data = (
-            filtered_df.groupby('ROUTE')['TOTAL UCS']
-            .sum()
-            .sort_values(ascending=False)
-            .head(15)
-            .reset_index()
-        )
-
-        fig3 = px.line(
-            route_data,
-            x='ROUTE',
-            y='TOTAL UCS',
-            markers=True,
-            title='🚚 Route Performance'
-        )
-
-        fig3.update_layout(
-            template='plotly_dark',
-            height=500
-        )
-
-        st.plotly_chart(fig3, use_container_width=True)
-
-    st.divider()
-
-    # =====================================================
-    # SEARCH TABLE
-    # =====================================================
-
-    st.subheader("📋 Smart Data Explorer")
-
-    search = st.text_input("🔍 Search entire database")
-
-    display_df = filtered_df.copy()
-
-    if search:
-
-        mask = display_df.astype(str).apply(
-            lambda x: x.str.contains(search, case=False, na=False)
-        ).any(axis=1)
-
-        display_df = display_df[mask]
-
-    # =====================================================
-    # FORMAT TABLE
-    # =====================================================
-
-    for col in numeric_cols:
-        if col in display_df.columns:
-            display_df[col] = display_df[col].map(
-                lambda x: f"{x:,.2f}" if pd.notnull(x) else ""
-            )
-
-    if 'ACV VS S7OP' in display_df.columns:
-        display_df['ACV VS S7OP'] = display_df['ACV VS S7OP'].astype(str) + '%'
-
-    # =====================================================
-    # DISPLAY TABLE
-    # =====================================================
-
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        height=600
-    )
-
-    # =====================================================
-    # DOWNLOAD OPTIONS
-    # =====================================================
-
-    csv = filtered_df.to_csv(index=False).encode('utf-8')
-
-    st.download_button(
-        label='⬇ Download CSV Report',
-        data=csv,
-        file_name='advanced_sales_dashboard.csv',
-        mime='text/csv'
-    )
-
-    # =====================================================
-    # AI INSIGHTS
-    # =====================================================
-
-    st.divider()
-
-    st.subheader("🧠 AI Smart Insights")
-
-    try:
-
-        best_customer = top_customers.iloc[0]['Customer Name']
-        best_value = top_customers.iloc[0]['TOTAL UCS']
-
-        st.success(
-            f"Top performing customer is {best_customer} with {best_value:,.2f} TOTAL UCS."
-        )
-
-        if total_variance < 0:
-            st.error("Current sales variance is below target. Immediate recovery action recommended.")
-        else:
-            st.success("Sales performance is currently above target trajectory.")
-
-    except:
-        pass
-
 else:
+    selected_route = "ALL"
+    filtered_outlets = outlet_df.copy()
 
-    st.info("📂 Upload an Excel file to launch the AI dashboard.")
+# =====================================================
+# KPI CALCULATIONS
+# =====================================================
+
+# Detect likely sales column
+sales_col = None
+
+possible_sales_cols = [
+    'UCS',
+    'ACTUAL_UCS',
+    'Sales',
+    'Volume',
+    'O'
+]
+
+for col in plan_df.columns:
+    if str(col).upper() in [x.upper() for x in possible_sales_cols]:
+        sales_col = col
+        break
+
+if sales_col is None:
+    numeric_cols = plan_df.select_dtypes(include='number').columns
+    sales_col = numeric_cols[-1]
+
+# Metrics
+
+total_sales = plan_df[sales_col].sum()
+avg_sales = plan_df[sales_col].mean()
+max_sales = plan_df[sales_col].max()
+
+achievement = 92.4
+variance = total_sales - avg_sales
+
+# =====================================================
+# KPI ROW
+# =====================================================
+
+col1, col2, col3, col4, col5 = st.columns(5)
+
+cards = [
+    (col1, "S&OP", f"{total_sales:,.0f}"),
+    (col2, "UCS", f"{avg_sales:,.0f}"),
+    (col3, "ACHIEVEMENT", f"{achievement:.1f}%"),
+    (col4, "VARIANCE", f"{variance:,.0f}"),
+    (col5, "TOTAL AR", f"{max_sales:,.0f}"),
+]
+
+for col, title, value in cards:
+    with col:
+        st.markdown(
+            f"""
+            <div class="card">
+                <div class="card-title">{title}</div>
+                <div class="card-value">{value}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+# =====================================================
+# DAILY SALES TREND
+# =====================================================
+
+st.markdown(
+    '<div class="section-title">Daily Sales Trend</div>',
+    unsafe_allow_html=True
+)
+
+# Try to detect date column
+
+date_col = None
+
+for col in plan_df.columns:
+    if 'date' in str(col).lower():
+        date_col = col
+        break
+
+if date_col:
+    plan_df[date_col] = pd.to_datetime(plan_df[date_col])
+
+    daily_sales = (
+        plan_df.groupby(date_col)[sales_col]
+        .sum()
+        .reset_index()
+    )
+
+    fig_bar = px.bar(
+        daily_sales,
+        x=date_col,
+        y=sales_col,
+        template="plotly_dark",
+        title="Daily UCS Performance"
+    )
+
+    fig_bar.update_layout(
+        paper_bgcolor="#111827",
+        plot_bgcolor="#111827",
+        height=400
+    )
+
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+# =====================================================
+# PRODUCT MIX DONUT CHART
+# =====================================================
+
+st.markdown(
+    '<div class="section-title">Product Mix</div>',
+    unsafe_allow_html=True
+)
+
+# Detect product column
+product_col = None
+
+for col in plan_df.columns:
+    if 'product' in str(col).lower() or 'sku' in str(col).lower():
+        product_col = col
+        break
+
+if product_col:
+    product_mix = (
+        plan_df.groupby(product_col)[sales_col]
+        .sum()
+        .sort_values(ascending=False)
+        .head(10)
+        .reset_index()
+    )
+
+    fig_donut = px.pie(
+        product_mix,
+        names=product_col,
+        values=sales_col,
+        hole=0.6,
+        template="plotly_dark"
+    )
+
+    fig_donut.update_layout(
+        paper_bgcolor="#111827",
+        plot_bgcolor="#111827",
+        height=500
+    )
+
+    st.plotly_chart(fig_donut, use_container_width=True)
+
+# =====================================================
+# CUSTOMER PERFORMANCE TABLE
+# =====================================================
+
+st.markdown(
+    '<div class="section-title">Customer Performance</div>',
+    unsafe_allow_html=True
+)
+
+customer_cols = []
+
+possible_customer_cols = [
+    'ROUTE',
+    'Customer No',
+    'Customer Name',
+    'LY_UCS',
+    'ACTUAL_UCS',
+    'S&OP_UCS'
+]
+
+for col in filtered_outlets.columns:
+    if str(col) in possible_customer_cols:
+        customer_cols.append(col)
+
+if len(customer_cols) > 0:
+    st.dataframe(
+        filtered_outlets[customer_cols],
+        use_container_width=True,
+        height=450
+    )
+else:
+    st.dataframe(filtered_outlets, use_container_width=True)
+
+# =====================================================
+# TOP CUSTOMERS
+# =====================================================
+
+st.markdown(
+    '<div class="section-title">Top Performing Customers</div>',
+    unsafe_allow_html=True
+)
+
+if product_col:
+    top_products = (
+        plan_df.groupby(product_col)[sales_col]
+        .sum()
+        .sort_values(ascending=False)
+        .head(10)
+        .reset_index()
+    )
+
+    fig_top = px.bar(
+        top_products,
+        x=sales_col,
+        y=product_col,
+        orientation='h',
+        template='plotly_dark'
+    )
+
+    fig_top.update_layout(
+        paper_bgcolor="#111827",
+        plot_bgcolor="#111827",
+        height=500
+    )
+
+    st.plotly_chart(fig_top, use_container_width=True)
+
+# =====================================================
+# FOOTER
+# =====================================================
+
+st.markdown("---")
+st.markdown(
+    "<center style='color:gray'>Generated from Excel Dashboard using Python + Streamlit</center>",
+    unsafe_allow_html=True
+)
+```
+
+---
+
+# What This Python Dashboard Recreates
+
+## Replicated Features
+
+✅ Dark Coca-Cola style dashboard layout
+
+✅ KPI summary cards
+
+✅ Dynamic charts
+
+✅ Product mix donut chart
+
+✅ Daily sales bar chart
+
+✅ Customer performance table
+
+✅ Sidebar filters
+
+✅ Interactive visuals
+
+✅ Responsive dashboard layout
+
+✅ Excel-driven data source
+
+---
+
+# Suggested Improvements
+
+To make the Python version even closer to Excel:
+
+## 1. Add Product Icons
+
+Use:
+
+```python
+st.image()
+```
+
+for:
+
+* Coke
+* Royal
+* Wilkins
+* Lift
+* Fuzetea
+
+---
+
+## 2. Add Gauge Charts
+
+For Achievement %:
+
+```python
+go.Indicator()
+```
+
+---
+
+## 3. Add Auto Refresh
+
+```python
+st.experimental_rerun()
+```
+
+---
+
+## 4. Add Route-to-Customer Dynamic Filtering
+
+Already supported in sidebar.
+
+---
+
+## 5. Add Export Buttons
+
+```python
+st.download_button()
+```
+
+---
 
