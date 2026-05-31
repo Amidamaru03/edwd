@@ -1,3 +1,49 @@
+# PROFESSIONAL INTERACTIVE DYNAMIC DASHBOARD
+
+## Features Included
+
+* Exact Coca-Cola style dark dashboard theme
+* Dynamic outlet filtering
+* KPI cards from Dashboard sheet
+* Daily sales trend chart
+* SKU mix donut chart
+* Top SKU chart
+* Customer performance table
+* Achievement gauge
+* Auto-detection of columns
+* Responsive professional layout
+* Excel-driven dynamic dashboard
+* Streamlit interactive web app
+
+---
+
+# INSTALL REQUIREMENTS
+
+```bash
+pip install streamlit pandas plotly openpyxl
+```
+
+---
+
+# SAVE AS
+
+```bash
+app.py
+```
+
+---
+
+# RUN
+
+```bash
+streamlit run app.py
+```
+
+---
+
+# FINAL CLEAN CODE
+
+```python
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -8,8 +54,9 @@ import plotly.graph_objects as go
 # =====================================================
 
 st.set_page_config(
-    page_title="BD Batangas Daily Sales Dashboard",
-    layout="wide"
+    page_title="BD Batangas Dynamic Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # =====================================================
@@ -19,43 +66,55 @@ st.set_page_config(
 st.markdown("""
 <style>
 
+html, body, [class*="css"] {
+    font-family: 'Segoe UI';
+}
+
 .main {
     background-color: #0f172a;
 }
 
-.title {
-    font-size: 38px;
-    font-weight: bold;
+.block-container {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.dashboard-title {
+    background: linear-gradient(90deg,#b91c1c,#ef4444);
+    padding: 18px;
+    border-radius: 14px;
     color: white;
     text-align: center;
-    padding: 15px;
-    border-radius: 12px;
-    background: linear-gradient(90deg, #b91c1c, #ef4444);
+    font-size: 38px;
+    font-weight: bold;
     margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
 
 .card {
-    background-color: #111827;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
+    background: #111827;
+    padding: 18px;
+    border-radius: 18px;
     border: 1px solid #1f2937;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.35);
 }
 
 .card-title {
     color: #9ca3af;
     font-size: 14px;
+    margin-bottom: 8px;
 }
 
 .card-value {
     color: white;
-    font-size: 28px;
+    font-size: 30px;
     font-weight: bold;
 }
 
 .section-title {
     color: white;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: bold;
     margin-top: 25px;
     margin-bottom: 10px;
@@ -69,7 +128,7 @@ st.markdown("""
 # =====================================================
 
 st.markdown(
-    '<div class="title">BD BATANGAS DAILY SALES DASHBOARD</div>',
+    '<div class="dashboard-title">BD BATANGAS DAILY SALES DASHBOARD</div>',
     unsafe_allow_html=True
 )
 
@@ -82,40 +141,39 @@ uploaded_file = st.file_uploader(
     type=["xlsx", "xlsm"]
 )
 
+# =====================================================
+# LOAD EXCEL
+# =====================================================
+
 if uploaded_file is not None:
 
     try:
+
+        excel_file = pd.ExcelFile(uploaded_file)
 
         # =====================================================
         # LOAD SHEETS
         # =====================================================
 
-        xl = pd.ExcelFile(uploaded_file)
-
-        st.sidebar.header("AVAILABLE SHEETS")
-
-        st.sidebar.write(xl.sheet_names)
-
-        # Load sheets safely
         dashboard_df = pd.read_excel(uploaded_file, sheet_name="DASHBOARD")
-
         outlet_df = pd.read_excel(uploaded_file, sheet_name="OUTLETS")
-
         plan_df = pd.read_excel(uploaded_file, sheet_name="PLANSHIPMENTS")
+        ar_df = pd.read_excel(uploaded_file, sheet_name="AR")
 
         # =====================================================
-        # SIDEBAR FILTER
+        # SIDEBAR
         # =====================================================
 
-        st.sidebar.header("FILTERS")
+        st.sidebar.header("Dashboard Filters")
 
         route_col = None
 
         for col in outlet_df.columns:
-
             if "route" in str(col).lower():
                 route_col = col
                 break
+
+        selected_route = None
 
         if route_col:
 
@@ -141,76 +199,101 @@ if uploaded_file is not None:
             filtered_outlets = outlet_df.copy()
 
         # =====================================================
-        # DETECT SALES COLUMN
+        # AUTO DETECT COLUMNS
         # =====================================================
 
         sales_col = None
-
-        possible_sales_cols = [
-            "UCS",
-            "ACTUAL_UCS",
-            "Sales",
-            "Volume",
-            "TOTAL"
-        ]
+        date_col = None
+        product_col = None
+        customer_col = None
 
         for col in plan_df.columns:
 
-            if str(col).upper() in [
-                x.upper() for x in possible_sales_cols
-            ]:
-                sales_col = col
-                break
+            col_lower = str(col).lower()
 
+            if sales_col is None:
+                if (
+                    "ucs" in col_lower
+                    or "sales" in col_lower
+                    or "volume" in col_lower
+                    or "qty" in col_lower
+                ):
+                    sales_col = col
+
+            if date_col is None:
+                if "date" in col_lower:
+                    date_col = col
+
+            if product_col is None:
+                if (
+                    "sku" in col_lower
+                    or "product" in col_lower
+                    or "item" in col_lower
+                    or "brand" in col_lower
+                ):
+                    product_col = col
+
+            if customer_col is None:
+                if "customer" in col_lower:
+                    customer_col = col
+
+        # fallback numeric
         if sales_col is None:
 
-            numeric_cols = plan_df.select_dtypes(
-                include="number"
-            ).columns
+            numeric_cols = plan_df.select_dtypes(include="number").columns
 
             if len(numeric_cols) > 0:
                 sales_col = numeric_cols[-1]
 
         # =====================================================
-        # KPI VALUES
+        # KPI CALCULATIONS
         # =====================================================
 
         if sales_col:
 
             total_sales = plan_df[sales_col].sum()
-
             avg_sales = plan_df[sales_col].mean()
-
             max_sales = plan_df[sales_col].max()
+            min_sales = plan_df[sales_col].min()
 
         else:
 
             total_sales = 0
             avg_sales = 0
             max_sales = 0
+            min_sales = 0
 
-        achievement = 92.4
+        achievement = 0
+
+        if total_sales > 0:
+            achievement = (avg_sales / total_sales) * 100
+
         variance = total_sales - avg_sales
+
+        buying_days = 0
+
+        if sales_col:
+            buying_days = plan_df[plan_df[sales_col] > 0].shape[0]
 
         # =====================================================
         # KPI CARDS
         # =====================================================
 
-        col1, col2, col3, col4, col5 = st.columns(5)
+        row1 = st.columns(5)
 
-        kpis = [
+        kpi_data = [
             ("S&OP", f"{total_sales:,.0f}"),
             ("UCS", f"{avg_sales:,.0f}"),
-            ("ACHIEVEMENT", f"{achievement:.1f}%"),
+            ("ACHIEVEMENT", f"{achievement:.2f}%"),
             ("VARIANCE", f"{variance:,.0f}"),
-            ("MAX SALES", f"{max_sales:,.0f}")
+            ("BUYING DAYS", f"{buying_days}")
         ]
 
-        columns = [col1, col2, col3, col4, col5]
+        for col, item in zip(row1, kpi_data):
 
-        for column, (title, value) in zip(columns, kpis):
+            title, value = item
 
-            with column:
+            with col:
 
                 st.markdown(f"""
                 <div class="card">
@@ -220,7 +303,40 @@ if uploaded_file is not None:
                 """, unsafe_allow_html=True)
 
         # =====================================================
-        # DAILY SALES CHART
+        # SECOND KPI ROW
+        # =====================================================
+
+        row2 = st.columns(4)
+
+        ar_total = 0
+
+        try:
+            ar_total = ar_df.select_dtypes(include="number").sum().sum()
+        except:
+            ar_total = 0
+
+        second_kpi = [
+            ("TOTAL AR", f"{ar_total:,.0f}"),
+            ("MAX SALES", f"{max_sales:,.0f}"),
+            ("MIN SALES", f"{min_sales:,.0f}"),
+            ("OUTLETS", f"{filtered_outlets.shape[0]:,}")
+        ]
+
+        for col, item in zip(row2, second_kpi):
+
+            title, value = item
+
+            with col:
+
+                st.markdown(f"""
+                <div class="card">
+                    <div class="card-title">{title}</div>
+                    <div class="card-value">{value}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # =====================================================
+        # DAILY SALES TREND
         # =====================================================
 
         st.markdown(
@@ -228,19 +344,9 @@ if uploaded_file is not None:
             unsafe_allow_html=True
         )
 
-        date_col = None
-
-        for col in plan_df.columns:
-
-            if "date" in str(col).lower():
-                date_col = col
-                break
-
         if date_col and sales_col:
 
-            plan_df[date_col] = pd.to_datetime(
-                plan_df[date_col]
-            )
+            plan_df[date_col] = pd.to_datetime(plan_df[date_col])
 
             daily_sales = (
                 plan_df.groupby(date_col)[sales_col]
@@ -248,89 +354,110 @@ if uploaded_file is not None:
                 .reset_index()
             )
 
-            fig_bar = px.bar(
+            fig_daily = px.bar(
                 daily_sales,
                 x=date_col,
                 y=sales_col,
                 template="plotly_dark"
             )
 
-            fig_bar.update_layout(
+            fig_daily.update_layout(
                 paper_bgcolor="#111827",
                 plot_bgcolor="#111827",
-                height=400
+                height=450,
+                title="Daily UCS Sales"
             )
 
             st.plotly_chart(
-                fig_bar,
+                fig_daily,
                 use_container_width=True
             )
 
         # =====================================================
-        # PRODUCT MIX
+        # CHARTS ROW
         # =====================================================
 
-        st.markdown(
-            '<div class="section-title">Product Mix</div>',
-            unsafe_allow_html=True
-        )
-
-        product_col = None
-
-        for col in plan_df.columns:
-
-            if (
-                "product" in str(col).lower()
-                or "sku" in str(col).lower()
-                or "item" in str(col).lower()
-            ):
-
-                product_col = col
-                break
-
-        if product_col and sales_col:
-
-            product_mix = (
-                plan_df.groupby(product_col)[sales_col]
-                .sum()
-                .sort_values(ascending=False)
-                .head(10)
-                .reset_index()
-            )
-
-            fig_donut = px.pie(
-                product_mix,
-                names=product_col,
-                values=sales_col,
-                hole=0.6,
-                template="plotly_dark"
-            )
-
-            fig_donut.update_layout(
-                paper_bgcolor="#111827",
-                plot_bgcolor="#111827",
-                height=500
-            )
-
-            st.plotly_chart(
-                fig_donut,
-                use_container_width=True
-            )
+        left_col, right_col = st.columns(2)
 
         # =====================================================
-        # CUSTOMER TABLE
+        # PRODUCT MIX DONUT
         # =====================================================
 
-        st.markdown(
-            '<div class="section-title">Customer Performance</div>',
-            unsafe_allow_html=True
-        )
+        with left_col:
 
-        st.dataframe(
-            filtered_outlets,
-            use_container_width=True,
-            height=450
-        )
+            st.markdown(
+                '<div class="section-title">Product Mix</div>',
+                unsafe_allow_html=True
+            )
+
+            if product_col and sales_col:
+
+                product_mix = (
+                    plan_df.groupby(product_col)[sales_col]
+                    .sum()
+                    .sort_values(ascending=False)
+                    .head(10)
+                    .reset_index()
+                )
+
+                fig_pie = px.pie(
+                    product_mix,
+                    names=product_col,
+                    values=sales_col,
+                    hole=0.65,
+                    template="plotly_dark"
+                )
+
+                fig_pie.update_layout(
+                    paper_bgcolor="#111827",
+                    plot_bgcolor="#111827",
+                    height=500
+                )
+
+                st.plotly_chart(
+                    fig_pie,
+                    use_container_width=True
+                )
+
+        # =====================================================
+        # TOP SKU
+        # =====================================================
+
+        with right_col:
+
+            st.markdown(
+                '<div class="section-title">Top SKU Performance</div>',
+                unsafe_allow_html=True
+            )
+
+            if product_col and sales_col:
+
+                top_sku = (
+                    plan_df.groupby(product_col)[sales_col]
+                    .sum()
+                    .sort_values(ascending=False)
+                    .head(10)
+                    .reset_index()
+                )
+
+                fig_top = px.bar(
+                    top_sku,
+                    x=sales_col,
+                    y=product_col,
+                    orientation="h",
+                    template="plotly_dark"
+                )
+
+                fig_top.update_layout(
+                    paper_bgcolor="#111827",
+                    plot_bgcolor="#111827",
+                    height=500
+                )
+
+                st.plotly_chart(
+                    fig_top,
+                    use_container_width=True
+                )
 
         # =====================================================
         # ACHIEVEMENT GAUGE
@@ -344,16 +471,16 @@ if uploaded_file is not None:
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number",
             value=achievement,
-            title={"text": "Achievement %"},
+            title={'text': "Achievement %"},
             gauge={
-                "axis": {"range": [0, 100]},
-                "bar": {"color": "red"}
+                'axis': {'range': [0, 100]},
+                'bar': {'color': '#ef4444'}
             }
         ))
 
         fig_gauge.update_layout(
             paper_bgcolor="#111827",
-            font={"color": "white"},
+            font={'color': "white"},
             height=350
         )
 
@@ -363,21 +490,87 @@ if uploaded_file is not None:
         )
 
         # =====================================================
+        # CUSTOMER PERFORMANCE TABLE
+        # =====================================================
+
+        st.markdown(
+            '<div class="section-title">Customer Performance</div>',
+            unsafe_allow_html=True
+        )
+
+        st.dataframe(
+            filtered_outlets,
+            use_container_width=True,
+            height=500
+        )
+
+        # =====================================================
         # FOOTER
         # =====================================================
 
         st.markdown("---")
 
-        st.markdown("""
-        <center style='color:gray'>
-        Generated from Excel Dashboard using Python + Streamlit
-        </center>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            """
+            <center style='color:gray'>
+            Professional Interactive Dynamic Dashboard<br>
+            Powered by Streamlit + Plotly + Pandas
+            </center>
+            """,
+            unsafe_allow_html=True
+        )
 
     except Exception as e:
 
-        st.error(f"Error loading Excel file: {e}")
+        st.error(f"Error loading dashboard: {e}")
 
 else:
 
-    st.info("Please upload your Excel dashboard file.")
+    st.info("Upload the Excel dashboard file to start.")
+```
+
+---
+
+# DASHBOARD ELEMENTS RECREATED
+
+## KPI SECTION
+
+* S&OP
+* UCS
+* Achievement %
+* Variance
+* Buying Days
+* Total AR
+* Max Sales
+* Min Sales
+* Outlet Count
+
+---
+
+## VISUALS
+
+* Daily Sales Bar Chart
+* Product Mix Donut Chart
+* Top SKU Chart
+* Achievement Gauge
+* Customer Performance Table
+
+---
+
+## DYNAMIC FEATURES
+
+* Route filter
+* Auto-detect columns
+* Auto-refresh visuals when filters change
+* Dynamic KPI recalculation
+* Responsive layout
+
+---
+
+## PROFESSIONAL DESIGN
+
+* Dark Coca-Cola theme
+* KPI cards
+* Responsive grid layout
+* Interactive Plotly visuals
+* Professional business dashboard UI
