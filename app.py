@@ -1,6 +1,6 @@
 # ============================================================
 # COCA-COLA INSPIRED SALES DASHBOARD
-# PREMIUM RED EDITION
+# ROUTE CODE + OUTLET FILTER VERSION
 # ============================================================
 
 import streamlit as st
@@ -19,16 +19,13 @@ st.set_page_config(
 )
 
 # ============================================================
-# COCA-COLA THEME CSS
+# COCA-COLA THEME
 # ============================================================
 
 st.markdown("""
 <style>
 
-/* =========================================================
-MAIN BACKGROUND
-========================================================= */
-
+/* MAIN BACKGROUND */
 .stApp {
     background:
     linear-gradient(
@@ -40,10 +37,7 @@ MAIN BACKGROUND
     );
 }
 
-/* =========================================================
-TEXT COLORS
-========================================================= */
-
+/* TEXT */
 h1, h2, h3, h4, h5 {
     color: white !important;
 }
@@ -52,23 +46,16 @@ p, label, span {
     color: #ffeaea !important;
 }
 
-/* =========================================================
-SIDEBAR
-========================================================= */
-
+/* SIDEBAR */
 [data-testid="stSidebar"] {
     background: linear-gradient(
         180deg,
         #4d0000,
         #7a0000
     );
-    border-right: 2px solid rgba(255,255,255,0.15);
 }
 
-/* =========================================================
-KPI CARDS
-========================================================= */
-
+/* KPI CARDS */
 [data-testid="metric-container"] {
 
     background: rgba(255,255,255,0.10);
@@ -77,19 +64,13 @@ KPI CARDS
 
     padding: 18px;
 
-    border-radius: 22px;
+    border-radius: 20px;
 
-    backdrop-filter: blur(12px);
-
-    box-shadow:
-        0 8px 32px rgba(0,0,0,0.25);
+    backdrop-filter: blur(10px);
 
 }
 
-/* =========================================================
-CHART CONTAINER
-========================================================= */
-
+/* CHARTS */
 .stPlotlyChart {
 
     background: rgba(255,255,255,0.08);
@@ -98,103 +79,16 @@ CHART CONTAINER
 
     padding: 10px;
 
-    border: 1px solid rgba(255,255,255,0.12);
-
-    backdrop-filter: blur(10px);
-
 }
 
-/* =========================================================
-DATAFRAME
-========================================================= */
-
+/* TABLE */
 [data-testid="stDataFrame"] {
 
-    background: rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.08);
 
     border-radius: 20px;
 
     padding: 10px;
-
-}
-
-/* =========================================================
-BUTTONS
-========================================================= */
-
-.stButton>button {
-
-    background: #ff1a1a;
-
-    color: white;
-
-    border-radius: 12px;
-
-    border: none;
-
-    font-weight: bold;
-
-}
-
-.stButton>button:hover {
-
-    background: #cc0000;
-
-    color: white;
-
-}
-
-/* =========================================================
-UPLOAD AREA
-========================================================= */
-
-[data-testid="stFileUploader"] {
-
-    background: rgba(255,255,255,0.08);
-
-    border-radius: 18px;
-
-    padding: 15px;
-
-}
-
-/* =========================================================
-HEADER
-========================================================= */
-
-.dashboard-title {
-
-    font-size: 48px;
-
-    font-weight: 800;
-
-    color: white;
-
-    text-align: center;
-
-    margin-bottom: 5px;
-
-}
-
-.dashboard-subtitle {
-
-    text-align: center;
-
-    color: #ffe5e5;
-
-    font-size: 16px;
-
-    margin-bottom: 20px;
-
-}
-
-/* =========================================================
-DIVIDER
-========================================================= */
-
-hr {
-
-    border: 1px solid rgba(255,255,255,0.12);
 
 }
 
@@ -206,13 +100,13 @@ hr {
 # ============================================================
 
 st.markdown("""
-<div class="dashboard-title">
+<h1 style='text-align:center;'>
 🥤 COCA-COLA SALES DASHBOARD
-</div>
+</h1>
 
-<div class="dashboard-subtitle">
+<p style='text-align:center; color:white;'>
 Premium Interactive Analytics Dashboard
-</div>
+</p>
 """, unsafe_allow_html=True)
 
 # ============================================================
@@ -226,7 +120,7 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is None:
 
-    st.info("Upload your Coca-Cola sales Excel file.")
+    st.info("Please upload your Excel file.")
 
     st.stop()
 
@@ -254,18 +148,11 @@ def load_data(file):
         ~df.columns.duplicated()
     ]
 
-    # Convert headers to string
+    # Convert columns to string
     df.columns = [
         str(col)
         for col in df.columns
     ]
-
-    # Remove empty rows
-    if "OUTLET NAME" in df.columns:
-
-        df = df.dropna(
-            subset=["OUTLET NAME"]
-        )
 
     # Numeric conversion
     numeric_cols = [
@@ -284,14 +171,6 @@ def load_data(file):
                 errors="coerce"
             ).fillna(0)
 
-    # Date conversion
-    if "Del DATE" in df.columns:
-
-        df["Del DATE"] = pd.to_datetime(
-            df["Del DATE"],
-            errors="coerce"
-        )
-
     return df
 
 # ============================================================
@@ -306,24 +185,30 @@ df = load_data(uploaded_file)
 
 st.sidebar.title("⚙ FILTERS")
 
-# Shipment filter
-shipments = []
+# ============================================================
+# ROUTE CODE FILTER
+# ============================================================
 
-if "Shipment" in df.columns:
+route_codes = []
 
-    shipments = sorted(
-        df["Shipment"]
+if "ROUTE CODE" in df.columns:
+
+    route_codes = sorted(
+        df["ROUTE CODE"]
         .dropna()
         .astype(str)
         .unique()
     )
 
-selected_shipments = st.sidebar.multiselect(
-    "Select Shipment",
-    shipments
+selected_routes = st.sidebar.multiselect(
+    "Select Route Code",
+    route_codes
 )
 
-# Outlet filter
+# ============================================================
+# OUTLET FILTER
+# ============================================================
+
 outlets = []
 
 if "OUTLET NAME" in df.columns:
@@ -336,7 +221,7 @@ if "OUTLET NAME" in df.columns:
     )
 
 selected_outlets = st.sidebar.multiselect(
-    "Select Outlet",
+    "Select Outlet Name",
     outlets
 )
 
@@ -346,14 +231,16 @@ selected_outlets = st.sidebar.multiselect(
 
 filtered_df = df.copy()
 
-if selected_shipments:
+# Route filter
+if selected_routes:
 
     filtered_df = filtered_df[
-        filtered_df["Shipment"]
+        filtered_df["ROUTE CODE"]
         .astype(str)
-        .isin(selected_shipments)
+        .isin(selected_routes)
     ]
 
+# Outlet filter
 if selected_outlets:
 
     filtered_df = filtered_df[
@@ -376,13 +263,18 @@ FILL_RATE = (
     if TOTAL_ORDER != 0 else 0
 )
 
+TOTAL_OUTLETS = (
+    filtered_df["OUTLET NAME"]
+    .nunique()
+)
+
 # ============================================================
 # KPI SECTION
 # ============================================================
 
 st.subheader("📌 KPI SUMMARY")
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5 = st.columns(5)
 
 c1.metric(
     "ORDER QTY",
@@ -400,6 +292,11 @@ c3.metric(
 )
 
 c4.metric(
+    "UCS",
+    f"{TOTAL_UCS:,.0f}"
+)
+
+c5.metric(
     "FILL RATE",
     f"{FILL_RATE:.2f}%"
 )
@@ -413,44 +310,46 @@ st.markdown("---")
 chart1, chart2 = st.columns(2)
 
 # ============================================================
-# SHIPMENT PERFORMANCE
+# ROUTE PERFORMANCE
 # ============================================================
 
 with chart1:
 
-    st.subheader("🚚 Shipment Performance")
+    st.subheader("🚚 Route Performance")
 
-    shipment_summary = (
-        filtered_df.groupby("Shipment")[
-            ["ORDER QTY", "DELIVER QTY"]
-        ]
-        .sum()
-        .reset_index()
-    )
+    if "ROUTE CODE" in filtered_df.columns:
 
-    fig_ship = px.bar(
-        shipment_summary,
-        x="Shipment",
-        y=["ORDER QTY", "DELIVER QTY"],
-        barmode="group",
-        template="plotly_dark"
-    )
+        route_summary = (
+            filtered_df.groupby("ROUTE CODE")[
+                ["ORDER QTY", "DELIVER QTY"]
+            ]
+            .sum()
+            .reset_index()
+        )
 
-    fig_ship.update_layout(
+        fig_route = px.bar(
+            route_summary,
+            x="ROUTE CODE",
+            y=["ORDER QTY", "DELIVER QTY"],
+            barmode="group",
+            template="plotly_dark"
+        )
 
-        paper_bgcolor="rgba(0,0,0,0)",
+        fig_route.update_layout(
 
-        plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
 
-        font=dict(color="white"),
+            plot_bgcolor="rgba(0,0,0,0)",
 
-        height=450
-    )
+            font=dict(color="white"),
 
-    st.plotly_chart(
-        fig_ship,
-        use_container_width=True
-    )
+            height=450
+        )
+
+        st.plotly_chart(
+            fig_route,
+            use_container_width=True
+        )
 
 # ============================================================
 # TOP OUTLETS
@@ -539,7 +438,7 @@ st.plotly_chart(
 )
 
 # ============================================================
-# TABLE
+# DATABASE TABLE
 # ============================================================
 
 st.subheader("📋 Sales Database")
