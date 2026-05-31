@@ -1,7 +1,6 @@
 # ============================================================
-# BD BATANGAS DYNAMIC SALES DASHBOARD
-# STREAMLIT VERSION
-# FINAL CLEAN CODE
+# BD BATANGAS SALES DASHBOARD
+# FINAL CLEAN WORKING VERSION
 # ============================================================
 
 import streamlit as st
@@ -25,30 +24,42 @@ st.set_page_config(
 st.title("📊 BD BATANGAS SALES DASHBOARD")
 
 # ============================================================
-# FILE PATH
+# FILE UPLOADER
 # ============================================================
 
-FILE_PATH = "P5 Dynamic Dashboard Batangas BD(2).xlsm"
+uploaded_file = st.file_uploader(
+    "Upload Excel File",
+    type=["xlsm", "xlsx"]
+)
+
+# ============================================================
+# STOP IF NO FILE
+# ============================================================
+
+if uploaded_file is None:
+    st.info("Please upload your Excel dashboard file.")
+    st.stop()
 
 # ============================================================
 # LOAD DATA
 # ============================================================
 
 @st.cache_data
-def load_data():
+def load_data(file):
 
     raw = pd.read_excel(
-        FILE_PATH,
+        file,
         sheet_name="OUTLETS"
     )
 
-    # Get headers
+    # ========================================================
+    # CLEAN DATA
+    # ========================================================
+
     headers = raw.iloc[1]
 
-    # Remove top rows
     df = raw.iloc[2:].copy()
 
-    # Apply headers
     df.columns = headers
 
     # Remove empty rows
@@ -57,7 +68,10 @@ def load_data():
     # Reset index
     df.reset_index(drop=True, inplace=True)
 
-    # Rename columns
+    # ========================================================
+    # RENAME COLUMNS
+    # ========================================================
+
     df.rename(columns={
         "Customer Name": "Customer_Name",
         "Customer No": "Customer_No",
@@ -71,7 +85,10 @@ def load_data():
         "ACH_vs_S&OP": "ACH_vs_SOP"
     }, inplace=True)
 
-    # Numeric columns
+    # ========================================================
+    # NUMERIC COLUMNS
+    # ========================================================
+
     numeric_cols = [
         "Actual_UCS",
         "LY_UCS",
@@ -83,7 +100,9 @@ def load_data():
     ]
 
     for col in numeric_cols:
+
         if col in df.columns:
+
             df[col] = pd.to_numeric(
                 df[col],
                 errors="coerce"
@@ -92,13 +111,13 @@ def load_data():
     return df
 
 # ============================================================
-# LOAD DF
+# LOAD DATAFRAME
 # ============================================================
 
-df = load_data()
+df = load_data(uploaded_file)
 
 # ============================================================
-# SIDEBAR FILTER
+# SIDEBAR FILTERS
 # ============================================================
 
 st.sidebar.header("FILTERS")
@@ -106,7 +125,12 @@ st.sidebar.header("FILTERS")
 routes = []
 
 if "ROUTE" in df.columns:
-    routes = sorted(df["ROUTE"].dropna().unique())
+
+    routes = sorted(
+        df["ROUTE"]
+        .dropna()
+        .unique()
+    )
 
 selected_routes = st.sidebar.multiselect(
     "Select Route",
@@ -120,6 +144,7 @@ selected_routes = st.sidebar.multiselect(
 filtered_df = df.copy()
 
 if selected_routes:
+
     filtered_df = filtered_df[
         filtered_df["ROUTE"].isin(selected_routes)
     ]
@@ -129,7 +154,9 @@ if selected_routes:
 # ============================================================
 
 TOTAL_ACTUAL = filtered_df["Actual_UCS"].sum()
+
 TOTAL_TARGET = filtered_df["SOP_UCS"].sum()
+
 TOTAL_LY = filtered_df["LY_UCS"].sum()
 
 ACHIEVEMENT = (
@@ -142,7 +169,10 @@ GROWTH = (
     if TOTAL_LY != 0 else 0
 )
 
-TOTAL_OUTLETS = filtered_df["Customer_Name"].nunique()
+TOTAL_OUTLETS = (
+    filtered_df["Customer_Name"]
+    .nunique()
+)
 
 TOTAL_ROUTES = (
     filtered_df["ROUTE"].nunique()
@@ -153,6 +183,8 @@ TOTAL_ROUTES = (
 # ============================================================
 # KPI CARDS
 # ============================================================
+
+st.subheader("📌 KPI SUMMARY")
 
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
@@ -239,7 +271,7 @@ fig_customer = px.bar(
     x="Actual_UCS",
     y="Customer_Name",
     orientation="h",
-    title="Top 10 Customers"
+    title="Top Customers"
 )
 
 st.plotly_chart(
@@ -254,7 +286,9 @@ st.plotly_chart(
 st.subheader("🎯 Achievement Gauge")
 
 fig_gauge = go.Figure(go.Indicator(
+
     mode="gauge+number",
+
     value=ACHIEVEMENT,
 
     title={
@@ -262,19 +296,23 @@ fig_gauge = go.Figure(go.Indicator(
     },
 
     gauge={
+
         "axis": {
             "range": [0, 150]
         },
 
         "steps": [
+
             {
                 "range": [0, 70],
                 "color": "lightgray"
             },
+
             {
                 "range": [70, 100],
                 "color": "yellow"
             },
+
             {
                 "range": [100, 150],
                 "color": "lightgreen"
@@ -295,10 +333,12 @@ st.plotly_chart(
 st.subheader("🥧 Achievement Distribution")
 
 pie_df = pd.DataFrame({
+
     "Category": [
         "Actual",
         "Remaining"
     ],
+
     "Value": [
         TOTAL_ACTUAL,
         max(TOTAL_TARGET - TOTAL_ACTUAL, 0)
