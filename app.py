@@ -1,7 +1,31 @@
+# ADVANCED COCA-COLA STYLE SALES DASHBOARD
+
+## FEATURES
+
+* Modern Coca-Cola inspired UI
+* Glassmorphism cards
+* Dynamic KPI metrics
+* Route filtering
+* Customer analytics
+* Achievement gauge
+* Top 10 customer ranking
+* Auto KPI calculations
+* Responsive layout
+* Interactive Plotly charts
+* Clean professional design
+* Streamlit Cloud ready
+* Duplicate column protection
+* Excel upload support
+* Dark analytics theme
+
+---
+
+# FINAL ADVANCED CLEAN CODE
+
+```python
 # ============================================================
-# BD BATANGAS SALES DASHBOARD
-# FINAL CLEAN WORKING VERSION
-# STREAMLIT + PLOTLY
+# ADVANCED BD BATANGAS SALES DASHBOARD
+# COCA-COLA STYLE VERSION
 # ============================================================
 
 import streamlit as st
@@ -15,14 +39,70 @@ import plotly.graph_objects as go
 
 st.set_page_config(
     page_title="BD Batangas Dashboard",
-    layout="wide"
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # ============================================================
-# TITLE
+# CUSTOM CSS
 # ============================================================
 
-st.title("📊 BD BATANGAS SALES DASHBOARD")
+st.markdown("""
+<style>
+
+.main {
+    background: linear-gradient(to bottom right, #0f172a, #111827);
+}
+
+.block-container {
+    padding-top: 1rem;
+}
+
+h1, h2, h3 {
+    color: white !important;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #111827;
+}
+
+.metric-card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0px 4px 20px rgba(0,0,0,0.3);
+}
+
+.dashboard-title {
+    font-size: 42px;
+    font-weight: bold;
+    color: white;
+}
+
+.small-text {
+    color: #d1d5db;
+    font-size: 14px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# HEADER
+# ============================================================
+
+st.markdown(
+    """
+    <div class='dashboard-title'>📊 BD BATANGAS SALES DASHBOARD</div>
+    <div class='small-text'>Advanced Interactive Analytics Dashboard</div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown("---")
 
 # ============================================================
 # FILE UPLOADER
@@ -30,15 +110,11 @@ st.title("📊 BD BATANGAS SALES DASHBOARD")
 
 uploaded_file = st.file_uploader(
     "Upload Excel File",
-    type=["xlsm", "xlsx"]
+    type=["xlsx", "xlsm"]
 )
 
-# ============================================================
-# STOP IF NO FILE
-# ============================================================
-
 if uploaded_file is None:
-    st.info("Please upload your Excel dashboard file.")
+    st.info("Upload your Excel sales file to continue.")
     st.stop()
 
 # ============================================================
@@ -46,11 +122,8 @@ if uploaded_file is None:
 # ============================================================
 
 @st.cache_data
-def load_data(file):
 
-    # ========================================================
-    # READ EXCEL
-    # ========================================================
+def load_data(file):
 
     raw = pd.read_excel(
         file,
@@ -58,38 +131,22 @@ def load_data(file):
     )
 
     # ========================================================
-    # GET HEADERS
+    # FIX HEADERS
     # ========================================================
 
     headers = raw.iloc[1].astype(str)
 
-    # ========================================================
-    # REMOVE DUPLICATE COLUMN NAMES
-    # ========================================================
-
     unique_headers = []
-
     counter = {}
 
     for col in headers:
 
         if col in counter:
-
             counter[col] += 1
-
-            unique_headers.append(
-                f"{col}_{counter[col]}"
-            )
-
+            unique_headers.append(f"{col}_{counter[col]}")
         else:
-
             counter[col] = 0
-
             unique_headers.append(col)
-
-    # ========================================================
-    # CREATE DATAFRAME
-    # ========================================================
 
     df = raw.iloc[2:].copy()
 
@@ -100,19 +157,13 @@ def load_data(file):
     # ========================================================
 
     if "Customer Name" in df.columns:
-
-        df = df.dropna(
-            subset=["Customer Name"]
-        )
+        df = df.dropna(subset=["Customer Name"])
 
     # ========================================================
     # RESET INDEX
     # ========================================================
 
-    df.reset_index(
-        drop=True,
-        inplace=True
-    )
+    df.reset_index(drop=True, inplace=True)
 
     # ========================================================
     # RENAME COLUMNS
@@ -142,19 +193,13 @@ def load_data(file):
         elif "ROUTE" in col_str:
             rename_map[col] = "ROUTE"
 
-    df.rename(
-        columns=rename_map,
-        inplace=True
-    )
+    df.rename(columns=rename_map, inplace=True)
 
     # ========================================================
-    # REMOVE DUPLICATED COLUMNS AGAIN
+    # REMOVE DUPLICATE COLUMNS
     # ========================================================
 
-    df = df.loc[
-        :,
-        ~df.columns.duplicated()
-    ]
+    df = df.loc[:, ~df.columns.duplicated()]
 
     # ========================================================
     # NUMERIC CONVERSION
@@ -184,11 +229,12 @@ def load_data(file):
 df = load_data(uploaded_file)
 
 # ============================================================
-# SIDEBAR FILTERS
+# SIDEBAR
 # ============================================================
 
-st.sidebar.header("FILTERS")
+st.sidebar.title("⚙ Dashboard Filters")
 
+# ROUTE FILTER
 routes = []
 
 if "ROUTE" in df.columns:
@@ -211,7 +257,7 @@ selected_routes = st.sidebar.multiselect(
 
 filtered_df = df.copy()
 
-if selected_routes and "ROUTE" in filtered_df.columns:
+if selected_routes:
 
     filtered_df = filtered_df[
         filtered_df["ROUTE"]
@@ -223,23 +269,9 @@ if selected_routes and "ROUTE" in filtered_df.columns:
 # KPI CALCULATIONS
 # ============================================================
 
-TOTAL_ACTUAL = (
-    filtered_df["Actual_UCS"].sum()
-    if "Actual_UCS" in filtered_df.columns
-    else 0
-)
-
-TOTAL_TARGET = (
-    filtered_df["SOP_UCS"].sum()
-    if "SOP_UCS" in filtered_df.columns
-    else 0
-)
-
-TOTAL_LY = (
-    filtered_df["LY_UCS"].sum()
-    if "LY_UCS" in filtered_df.columns
-    else 0
-)
+TOTAL_ACTUAL = filtered_df["Actual_UCS"].sum()
+TOTAL_TARGET = filtered_df["SOP_UCS"].sum()
+TOTAL_LY = filtered_df["LY_UCS"].sum()
 
 ACHIEVEMENT = (
     (TOTAL_ACTUAL / TOTAL_TARGET) * 100
@@ -251,17 +283,8 @@ GROWTH = (
     if TOTAL_LY != 0 else 0
 )
 
-TOTAL_OUTLETS = (
-    filtered_df["Customer_Name"].nunique()
-    if "Customer_Name" in filtered_df.columns
-    else 0
-)
-
-TOTAL_ROUTES = (
-    filtered_df["ROUTE"].nunique()
-    if "ROUTE" in filtered_df.columns
-    else 0
-)
+TOTAL_OUTLETS = filtered_df["Customer_Name"].nunique()
+TOTAL_ROUTES = filtered_df["ROUTE"].nunique()
 
 # ============================================================
 # KPI SECTION
@@ -271,51 +294,34 @@ st.subheader("📌 KPI SUMMARY")
 
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-col1.metric(
-    "TOTAL SALES",
-    f"{TOTAL_ACTUAL:,.0f}"
-)
+col1.metric("TOTAL SALES", f"{TOTAL_ACTUAL:,.0f}")
+col2.metric("TARGET", f"{TOTAL_TARGET:,.0f}")
+col3.metric("ACH %", f"{ACHIEVEMENT:.2f}%")
+col4.metric("VS LY", f"{GROWTH:.2f}%")
+col5.metric("OUTLETS", f"{TOTAL_OUTLETS}")
+col6.metric("ROUTES", f"{TOTAL_ROUTES}")
 
-col2.metric(
-    "TARGET",
-    f"{TOTAL_TARGET:,.0f}"
-)
+st.markdown("---")
 
-col3.metric(
-    "ACH %",
-    f"{ACHIEVEMENT:.2f}%"
-)
+# ============================================================
+# CHART ROW 1
+# ============================================================
 
-col4.metric(
-    "VS LY",
-    f"{GROWTH:.2f}%"
-)
-
-col5.metric(
-    "OUTLETS",
-    f"{TOTAL_OUTLETS}"
-)
-
-col6.metric(
-    "ROUTES",
-    f"{TOTAL_ROUTES}"
-)
+chart1, chart2 = st.columns(2)
 
 # ============================================================
 # ROUTE PERFORMANCE
 # ============================================================
 
-st.subheader("📈 Route Performance")
+with chart1:
 
-if (
-    "ROUTE" in filtered_df.columns
-    and "Actual_UCS" in filtered_df.columns
-):
+    st.subheader("📈 Route Performance")
 
     route_summary = (
-        filtered_df.groupby("ROUTE")[
-            ["Actual_UCS", "SOP_UCS"]
-        ]
+        filtered_df.groupby("ROUTE")[[
+            "Actual_UCS",
+            "SOP_UCS"
+        ]]
         .sum()
         .reset_index()
     )
@@ -325,7 +331,13 @@ if (
         x="ROUTE",
         y=["Actual_UCS", "SOP_UCS"],
         barmode="group",
-        title="Route Performance"
+        template="plotly_dark"
+    )
+
+    fig_route.update_layout(
+        height=450,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
     )
 
     st.plotly_chart(
@@ -337,17 +349,12 @@ if (
 # TOP CUSTOMERS
 # ============================================================
 
-st.subheader("🏆 Top 10 Customers")
+with chart2:
 
-if (
-    "Customer_Name" in filtered_df.columns
-    and "Actual_UCS" in filtered_df.columns
-):
+    st.subheader("🏆 Top Customers")
 
     top_customer = (
-        filtered_df.groupby("Customer_Name")[
-            "Actual_UCS"
-        ]
+        filtered_df.groupby("Customer_Name")["Actual_UCS"]
         .sum()
         .reset_index()
         .sort_values(
@@ -362,7 +369,13 @@ if (
         x="Actual_UCS",
         y="Customer_Name",
         orientation="h",
-        title="Top Customers"
+        template="plotly_dark"
+    )
+
+    fig_customer.update_layout(
+        height=450,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
     )
 
     st.plotly_chart(
@@ -371,97 +384,117 @@ if (
     )
 
 # ============================================================
+# CHART ROW 2
+# ============================================================
+
+chart3, chart4 = st.columns(2)
+
+# ============================================================
 # ACHIEVEMENT GAUGE
 # ============================================================
 
-st.subheader("🎯 Achievement Gauge")
+with chart3:
 
-fig_gauge = go.Figure(go.Indicator(
+    st.subheader("🎯 Achievement Gauge")
 
-    mode="gauge+number",
+    fig_gauge = go.Figure(go.Indicator(
 
-    value=ACHIEVEMENT,
+        mode="gauge+number",
+        value=ACHIEVEMENT,
 
-    title={
-        "text": "Achievement %"
-    },
-
-    gauge={
-
-        "axis": {
-            "range": [0, 150]
+        title={
+            "text": "Achievement %"
         },
 
-        "steps": [
-
-            {
-                "range": [0, 70],
-                "color": "lightgray"
+        gauge={
+            "axis": {
+                "range": [0, 150]
             },
 
-            {
-                "range": [70, 100],
-                "color": "yellow"
+            "bar": {
+                "color": "red"
             },
 
-            {
-                "range": [100, 150],
-                "color": "lightgreen"
-            }
-        ]
-    }
-))
+            "steps": [
+                {
+                    "range": [0, 70],
+                    "color": "gray"
+                },
+                {
+                    "range": [70, 100],
+                    "color": "orange"
+                },
+                {
+                    "range": [100, 150],
+                    "color": "green"
+                }
+            ]
+        }
+    ))
 
-st.plotly_chart(
-    fig_gauge,
-    use_container_width=True
-)
+    fig_gauge.update_layout(
+        height=450,
+        paper_bgcolor='rgba(0,0,0,0)',
+        font={'color': 'white'}
+    )
+
+    st.plotly_chart(
+        fig_gauge,
+        use_container_width=True
+    )
 
 # ============================================================
 # PIE CHART
 # ============================================================
 
-st.subheader("🥧 Achievement Distribution")
+with chart4:
 
-pie_df = pd.DataFrame({
+    st.subheader("🥧 Achievement Distribution")
 
-    "Category": [
-        "Actual",
-        "Remaining"
-    ],
+    pie_df = pd.DataFrame({
+        "Category": [
+            "Actual",
+            "Remaining"
+        ],
 
-    "Value": [
-        TOTAL_ACTUAL,
-        max(TOTAL_TARGET - TOTAL_ACTUAL, 0)
-    ]
-})
+        "Value": [
+            TOTAL_ACTUAL,
+            max(TOTAL_TARGET - TOTAL_ACTUAL, 0)
+        ]
+    })
 
-fig_pie = px.pie(
-    pie_df,
-    names="Category",
-    values="Value"
-)
+    fig_pie = px.pie(
+        pie_df,
+        names="Category",
+        values="Value",
+        hole=0.5,
+        template="plotly_dark"
+    )
 
-st.plotly_chart(
-    fig_pie,
-    use_container_width=True
-)
+    fig_pie.update_layout(
+        height=450,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+
+    st.plotly_chart(
+        fig_pie,
+        use_container_width=True
+    )
 
 # ============================================================
-# DATA TABLE
+# OUTLET TABLE
 # ============================================================
 
 st.subheader("📋 Outlet Performance Table")
 
 safe_df = filtered_df.copy()
 
-# Convert all column names to string
 safe_df.columns = [
     str(col)
     for col in safe_df.columns
 ]
 
-# Remove duplicate columns
 safe_df = safe_df.loc[
     :,
     ~safe_df.columns.duplicated()
@@ -469,5 +502,65 @@ safe_df = safe_df.loc[
 
 st.dataframe(
     safe_df,
-    use_container_width=True
+    use_container_width=True,
+    height=500
 )
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.markdown("---")
+
+st.markdown(
+    """
+    <center>
+        <p style='color:gray;'>Advanced Dynamic Dashboard • Powered by Streamlit + Plotly</p>
+    </center>
+    """,
+    unsafe_allow_html=True
+)
+
+```
+
+---
+
+# REQUIREMENTS.TXT
+
+```txt
+streamlit
+pandas
+openpyxl
+plotly
+numpy
+```
+
+---
+
+# RUN COMMAND
+
+```bash
+streamlit run app.py
+```
+
+---
+
+# NEXT LEVEL IDEAS
+
+You can still upgrade this further with:
+
+* AI Sales Forecasting
+* Daily Trend Analytics
+* Coca-Cola Product Icons
+* Geo Mapping
+* PDF Export
+* Auto Refresh
+* Mobile App Layout
+* Login System
+* Dark/Light Toggle
+* Animated KPI Cards
+* Target Tracking
+* Strike Rate Analytics
+* Route Ranking System
+* Salesperson Leaderboard
+
