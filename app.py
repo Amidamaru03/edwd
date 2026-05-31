@@ -1,6 +1,7 @@
 # ============================================================
 # BD BATANGAS SALES DASHBOARD
 # FINAL CLEAN WORKING VERSION
+# STREAMLIT + PLOTLY
 # ============================================================
 
 import streamlit as st
@@ -47,56 +48,122 @@ if uploaded_file is None:
 @st.cache_data
 def load_data(file):
 
+    # ========================================================
+    # READ EXCEL
+    # ========================================================
+
     raw = pd.read_excel(
         file,
         sheet_name="OUTLETS"
     )
 
     # ========================================================
-    # CLEAN DATA
+    # GET HEADERS
     # ========================================================
 
-    headers = raw.iloc[1]
+    headers = raw.iloc[1].astype(str)
+
+    # ========================================================
+    # REMOVE DUPLICATE COLUMN NAMES
+    # ========================================================
+
+    unique_headers = []
+
+    counter = {}
+
+    for col in headers:
+
+        if col in counter:
+
+            counter[col] += 1
+
+            unique_headers.append(
+                f"{col}_{counter[col]}"
+            )
+
+        else:
+
+            counter[col] = 0
+
+            unique_headers.append(col)
+
+    # ========================================================
+    # CREATE DATAFRAME
+    # ========================================================
 
     df = raw.iloc[2:].copy()
 
-    df.columns = headers
+    df.columns = unique_headers
 
-    # Remove empty rows
-    df = df.dropna(subset=["Customer Name"])
+    # ========================================================
+    # REMOVE EMPTY ROWS
+    # ========================================================
 
-    # Reset index
-    df.reset_index(drop=True, inplace=True)
+    if "Customer Name" in df.columns:
+
+        df = df.dropna(
+            subset=["Customer Name"]
+        )
+
+    # ========================================================
+    # RESET INDEX
+    # ========================================================
+
+    df.reset_index(
+        drop=True,
+        inplace=True
+    )
 
     # ========================================================
     # RENAME COLUMNS
     # ========================================================
 
-    df.rename(columns={
-        "Customer Name": "Customer_Name",
-        "Customer No": "Customer_No",
-        "PARTNER SUB MODEL": "Partner_Model",
-        "ACTUAL_UCS": "Actual_UCS",
-        "LY_UCS": "LY_UCS",
-        "S&OP_UCS": "SOP_UCS",
-        "VAR_vs_LY": "VAR_vs_LY",
-        "VAR_vs_S&OP": "VAR_vs_SOP",
-        "ACH_vs_LY": "ACH_vs_LY",
-        "ACH_vs_S&OP": "ACH_vs_SOP"
-    }, inplace=True)
+    rename_map = {}
+
+    for col in df.columns:
+
+        col_str = str(col)
+
+        if "Customer Name" in col_str:
+            rename_map[col] = "Customer_Name"
+
+        elif "Customer No" in col_str:
+            rename_map[col] = "Customer_No"
+
+        elif "ACTUAL_UCS" in col_str:
+            rename_map[col] = "Actual_UCS"
+
+        elif "LY_UCS" in col_str:
+            rename_map[col] = "LY_UCS"
+
+        elif "S&OP_UCS" in col_str:
+            rename_map[col] = "SOP_UCS"
+
+        elif "ROUTE" in col_str:
+            rename_map[col] = "ROUTE"
+
+    df.rename(
+        columns=rename_map,
+        inplace=True
+    )
 
     # ========================================================
-    # NUMERIC COLUMNS
+    # REMOVE DUPLICATED COLUMNS AGAIN
+    # ========================================================
+
+    df = df.loc[
+        :,
+        ~df.columns.duplicated()
+    ]
+
+    # ========================================================
+    # NUMERIC CONVERSION
     # ========================================================
 
     numeric_cols = [
         "Actual_UCS",
         "LY_UCS",
-        "SOP_UCS",
-        "VAR_vs_LY",
-        "VAR_vs_SOP",
-        "ACH_vs_LY",
-        "ACH_vs_SOP"
+        "SOP_UCS"
     ]
 
     for col in numeric_cols:
@@ -129,6 +196,7 @@ if "ROUTE" in df.columns:
     routes = sorted(
         df["ROUTE"]
         .dropna()
+        .astype(str)
         .unique()
     )
 
@@ -143,21 +211,35 @@ selected_routes = st.sidebar.multiselect(
 
 filtered_df = df.copy()
 
-if selected_routes:
+if selected_routes and "ROUTE" in filtered_df.columns:
 
     filtered_df = filtered_df[
-        filtered_df["ROUTE"].isin(selected_routes)
+        filtered_df["ROUTE"]
+        .astype(str)
+        .isin(selected_routes)
     ]
 
 # ============================================================
 # KPI CALCULATIONS
 # ============================================================
 
-TOTAL_ACTUAL = filtered_df["Actual_UCS"].sum()
+TOTAL_ACTUAL = (
+    filtered_df["Actual_UCS"].sum()
+    if "Actual_UCS" in filtered_df.columns
+    else 0
+)
 
-TOTAL_TARGET = filtered_df["SOP_UCS"].sum()
+TOTAL_TARGET = (
+    filtered_df["SOP_UCS"].sum()
+    if "SOP_UCS" in filtered_df.columns
+    else 0
+)
 
-TOTAL_LY = filtered_df["LY_UCS"].sum()
+TOTAL_LY = (
+    filtered_df["LY_UCS"].sum()
+    if "LY_UCS" in filtered_df.columns
+    else 0
+)
 
 ACHIEVEMENT = (
     (TOTAL_ACTUAL / TOTAL_TARGET) * 100
@@ -170,8 +252,9 @@ GROWTH = (
 )
 
 TOTAL_OUTLETS = (
-    filtered_df["Customer_Name"]
-    .nunique()
+    filtered_df["Customer_Name"].nunique()
+    if "Customer_Name" in filtered_df.columns
+    else 0
 )
 
 TOTAL_ROUTES = (
@@ -181,7 +264,7 @@ TOTAL_ROUTES = (
 )
 
 # ============================================================
-# KPI CARDS
+# KPI SECTION
 # ============================================================
 
 st.subheader("📌 KPI SUMMARY")
@@ -224,7 +307,10 @@ col6.metric(
 
 st.subheader("📈 Route Performance")
 
-if "ROUTE" in filtered_df.columns:
+if (
+    "ROUTE" in filtered_df.columns
+    and "Actual_UCS" in filtered_df.columns
+):
 
     route_summary = (
         filtered_df.groupby("ROUTE")[
@@ -253,31 +339,36 @@ if "ROUTE" in filtered_df.columns:
 
 st.subheader("🏆 Top 10 Customers")
 
-top_customer = (
-    filtered_df.groupby("Customer_Name")[
-        "Actual_UCS"
-    ]
-    .sum()
-    .reset_index()
-    .sort_values(
-        by="Actual_UCS",
-        ascending=False
+if (
+    "Customer_Name" in filtered_df.columns
+    and "Actual_UCS" in filtered_df.columns
+):
+
+    top_customer = (
+        filtered_df.groupby("Customer_Name")[
+            "Actual_UCS"
+        ]
+        .sum()
+        .reset_index()
+        .sort_values(
+            by="Actual_UCS",
+            ascending=False
+        )
+        .head(10)
     )
-    .head(10)
-)
 
-fig_customer = px.bar(
-    top_customer,
-    x="Actual_UCS",
-    y="Customer_Name",
-    orientation="h",
-    title="Top Customers"
-)
+    fig_customer = px.bar(
+        top_customer,
+        x="Actual_UCS",
+        y="Customer_Name",
+        orientation="h",
+        title="Top Customers"
+    )
 
-st.plotly_chart(
-    fig_customer,
-    use_container_width=True
-)
+    st.plotly_chart(
+        fig_customer,
+        use_container_width=True
+    )
 
 # ============================================================
 # ACHIEVEMENT GAUGE
@@ -362,7 +453,21 @@ st.plotly_chart(
 
 st.subheader("📋 Outlet Performance Table")
 
+safe_df = filtered_df.copy()
+
+# Convert all column names to string
+safe_df.columns = [
+    str(col)
+    for col in safe_df.columns
+]
+
+# Remove duplicate columns
+safe_df = safe_df.loc[
+    :,
+    ~safe_df.columns.duplicated()
+]
+
 st.dataframe(
-    filtered_df,
+    safe_df,
     use_container_width=True
 )
